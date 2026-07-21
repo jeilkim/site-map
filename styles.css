@@ -1009,6 +1009,25 @@ a {
   margin-bottom: 10px;
 }
 
+.route-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.route-list-toggle {
+  display: none;
+  min-height: 28px;
+  padding: 0 9px;
+  border: 1px solid rgba(77, 163, 255, 0.45);
+  border-radius: 8px;
+  background: rgba(77, 163, 255, 0.12);
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 800;
+}
+
 .route-eyebrow {
   margin: 0 0 2px;
   color: var(--accent);
@@ -1193,6 +1212,20 @@ a {
     width: auto;
     max-height: min(52vh, 440px);
     z-index: 18;
+  }
+
+  .route-list-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .route-panel.list-collapsed .route-panel-header {
+    margin-bottom: 0;
+  }
+
+  .route-panel.list-collapsed .route-list {
+    display: none;
   }
 
   .overlay-card {

@@ -62,6 +62,7 @@
     routePanel: document.getElementById("routePanel"),
     routeSummary: document.getElementById("routeSummary"),
     routeList: document.getElementById("routeList"),
+    routeListToggle: document.getElementById("routeListToggle"),
     routeClose: document.getElementById("routeClose"),
     mapToolbarHide: document.getElementById("mapToolbarHide"),
     mapToolbarShow: document.getElementById("mapToolbarShow"),
@@ -107,6 +108,9 @@
     els.mapToolbarHide.addEventListener("click", () => setMapToolbarHidden(true));
     els.mapToolbarShow.addEventListener("click", () => setMapToolbarHidden(false));
     els.routeToggle.addEventListener("click", () => setRouteActive(!routeActive));
+    els.routeListToggle.addEventListener("click", () => {
+      setRouteListCollapsed(!els.routePanel.classList.contains("list-collapsed"));
+    });
     els.routeClose.addEventListener("click", () => setRouteActive(false));
     els.setDepotBtn.addEventListener("click", setDepotFromInput);
     els.clearDepotBtn.addEventListener("click", clearDepot);
@@ -226,6 +230,12 @@
 
   function isMobileLayout() {
     return window.matchMedia("(max-width: 900px)").matches;
+  }
+
+  function setRouteListCollapsed(collapsed) {
+    els.routePanel.classList.toggle("list-collapsed", collapsed);
+    els.routeListToggle.textContent = collapsed ? "목록 보기" : "목록 접기";
+    els.routeListToggle.setAttribute("aria-expanded", String(!collapsed));
   }
 
   function setSidebarCollapsed(collapsed, animate = true) {

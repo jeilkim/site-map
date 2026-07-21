@@ -147,13 +147,21 @@
           <p>왼쪽 API 설정에 네이버 지도 Client ID를 입력해 주세요.</p>
         </div>
       </div>
-      <div class="route-panel" id="routePanel" hidden>
+      <div class="route-panel list-collapsed" id="routePanel" hidden>
         <div class="route-panel-header">
           <div>
             <p class="route-eyebrow">추천 동선</p>
             <strong id="routeSummary">—</strong>
           </div>
-          <button type="button" class="detail-close" id="routeClose" aria-label="동선 닫기">×</button>
+          <div class="route-panel-actions">
+            <button
+              type="button"
+              class="route-list-toggle"
+              id="routeListToggle"
+              aria-expanded="false"
+            >목록 보기</button>
+            <button type="button" class="detail-close" id="routeClose" aria-label="동선 닫기">×</button>
+          </div>
         </div>
         <ol class="route-list" id="routeList"></ol>
       </div>
