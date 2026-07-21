@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>현장 지도 | site-map</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app" id="app">
+    <aside class="sidebar">
+      <header class="sidebar-header">
+        <div>
+          <p class="eyebrow">NAVER MAPS</p>
+          <h1>현장 지도</h1>
+        </div>
+        <span class="site-count" id="siteCount">0곳</span>
+      </header>
+
+      <section class="card" id="apiCard">
+        <div class="card-title-row">
+          <h2>API 설정</h2>
+          <button type="button" class="link-btn" id="toggleApiCard">접기</button>
+        </div>
+        <p class="hint">
+          네이버 클라우드 플랫폼에서 발급한 <strong>Maps Client ID</strong>를 입력하세요.
+          Geocoding(주소→좌표)도 같은 애플리케이션에서 활성화해야 합니다.
+        </p>
+        <label class="field">
+          <span>Client ID</span>
+          <input type="text" id="clientIdInput" placeholder="예: abcdefghijklmnop" autocomplete="off" />
+        </label>
+        <button type="button" class="btn primary" id="saveClientIdBtn">저장 후 지도 불러오기</button>
+        <p class="status" id="apiStatus"></p>
+      </section>
+
+      <section class="card">
+        <h2>현장 추가</h2>
+        <form id="siteForm" class="site-form">
+          <label class="field">
+            <span>현장명</span>
+            <input type="text" id="siteName" placeholder="예: 강남 현장" required />
+          </label>
+          <label class="field">
+            <span>주소</span>
+            <input type="text" id="siteAddress" placeholder="예: 서울특별시 강남구 테헤란로 152" required />
+          </label>
+          <button type="submit" class="btn primary" id="addSiteBtn">지도에 추가</button>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>출발 · 도착 위치</h2>
+        <p class="hint">
+          최적 동선 계산 시 이 위치에서 <strong>출발</strong>해 모든 현장을 돌고
+          다시 이 위치로 <strong>돌아옵니다</strong>. 비워두면 현장들만으로 계산합니다.
+        </p>
+        <label class="field">
+          <span>주소</span>
+          <input type="text" id="depotAddress" placeholder="예: 서울특별시 중구 세종대로 110" autocomplete="off" />
+        </label>
+        <div class="csv-actions">
+          <button type="button" class="btn secondary" id="setDepotBtn">위치 설정</button>
+          <button type="button" class="btn ghost" id="clearDepotBtn">해제</button>
+        </div>
+        <p class="status" id="depotStatus"></p>
+      </section>
+
+      <section class="card">
+        <h2>CSV 업로드</h2>
+        <p class="hint">첫 줄 헤더: <code>현장명,주소</code></p>
+        <div class="csv-actions">
+          <label class="btn secondary file-btn">
+            CSV 선택
+            <input type="file" id="csvInput" accept=".csv,text/csv" hidden />
+          </label>
+          <a class="btn ghost" href="sample.csv" download>샘플 다운로드</a>
+        </div>
+        <p class="status" id="csvStatus"></p>
+        <div class="fail-panel" id="failPanel" hidden>
+          <div class="card-title-row">
+            <h3>실패 목록</h3>
+            <button type="button" class="link-btn" id="copyFailsBtn">복사</button>
+          </div>
+          <ul class="fail-list" id="failList"></ul>
+        </div>
+      </section>
+
+      <section class="card list-card">
+        <div class="card-title-row">
+          <h2>등록된 현장</h2>
+          <button type="button" class="link-btn danger" id="clearAllBtn">전체 삭제</button>
+        </div>
+        <ul class="site-list" id="siteList">
+          <li class="empty">아직 등록된 현장이 없습니다.</li>
+        </ul>
+      </section>
+    </aside>
+
+    <main class="map-panel">
+      <div id="map" class="map"></div>
+      <div
+        class="panel-resizer left-resizer"
+        id="leftResizer"
+        role="separator"
+        aria-label="왼쪽 패널 너비 조절"
+        aria-orientation="vertical"
+      ></div>
+      <div
+        class="panel-resizer right-resizer"
+        id="rightResizer"
+        role="separator"
+        aria-label="오른쪽 표 너비 조절"
+        aria-orientation="vertical"
+      ></div>
+      <button
+        type="button"
+        class="sidebar-toggle"
+        id="sidebarToggle"
+        aria-label="왼쪽 패널 접기"
+        aria-expanded="true"
+      >‹</button>
+      <button
+        type="button"
+        class="overview-toggle"
+        id="overviewToggle"
+        aria-label="오른쪽 현장 표 접기"
+        aria-expanded="true"
+      >›</button>
+      <div class="map-toolbar" id="mapToolbar" hidden>
+        <span class="toolbar-label">표시</span>
+        <div class="seg" role="group" aria-label="마커 표시 방식">
+          <button type="button" class="seg-btn" data-label-mode="number">숫자만</button>
+          <button type="button" class="seg-btn" data-label-mode="name">현장명만</button>
+          <button type="button" class="seg-btn is-active" data-label-mode="all">다 보기</button>
+        </div>
+        <button type="button" class="toolbar-hide-btn" id="mapToolbarHide">숨기기</button>
+      </div>
+      <button type="button" class="map-toolbar-show" id="mapToolbarShow" hidden>표시 설정</button>
+      <div class="map-bottom-actions">
+        <button type="button" class="route-btn" id="routeToggle" disabled>최적 동선</button>
+        <button type="button" class="screenshot-btn" id="screenshotBtn" disabled>지도+표 저장</button>
+      </div>
+      <div class="map-overlay" id="mapOverlay">
+        <div class="overlay-card">
+          <h2>지도를 불러오려면 Client ID가 필요합니다</h2>
+          <p>왼쪽 API 설정에 네이버 지도 Client ID를 입력해 주세요.</p>
+        </div>
+      </div>
+      <div class="route-panel" id="routePanel" hidden>
+        <div class="route-panel-header">
+          <div>
+            <p class="route-eyebrow">추천 동선</p>
+            <strong id="routeSummary">—</strong>
+          </div>
+          <button type="button" class="detail-close" id="routeClose" aria-label="동선 닫기">×</button>
+        </div>
+        <ol class="route-list" id="routeList"></ol>
+      </div>
+      <div class="toast" id="toast" hidden></div>
+    </main>
+
+    <aside class="site-overview">
+      <div class="overview-grid" id="overviewGrid">
+        <div class="overview-cell overview-head">번호</div>
+        <div class="overview-cell overview-head">현장명</div>
+        <div class="overview-cell overview-head">주소</div>
+      </div>
+    </aside>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
