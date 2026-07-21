@@ -1085,36 +1085,124 @@ a {
   }
 
   .app {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto 55vh 100vh;
-    height: auto;
-    min-height: 100vh;
+    position: relative;
+    display: block;
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 20;
+    width: min(92vw, 380px);
     max-height: none;
+    padding: 18px;
+    opacity: 1;
+    transform: translateX(0);
+    transition: transform 0.22s ease, opacity 0.16s ease;
   }
 
   .map-panel {
-    min-height: 55vh;
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
   }
 
-  .app.sidebar-collapsed {
-    grid-template-columns: 1fr;
-    grid-template-rows: 0 100vh 100vh;
+  .app.sidebar-collapsed .sidebar {
+    padding: 18px;
+    opacity: 0;
+    transform: translateX(-100%);
   }
 
-  .app.overview-collapsed {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto 55vh 0;
+  .site-overview {
+    position: fixed;
+    inset: 0 0 0 auto;
+    z-index: 20;
+    width: min(92vw, 500px);
+    opacity: 1;
+    transform: translateX(0);
+    transition: transform 0.22s ease, opacity 0.16s ease;
   }
 
-  .app.sidebar-collapsed.overview-collapsed {
-    grid-template-columns: 1fr;
-    grid-template-rows: 0 100vh 0;
+  .app.overview-collapsed .site-overview {
+    opacity: 0;
+    transform: translateX(100%);
   }
 
-  .app.sidebar-collapsed .map-panel {
-    min-height: 100vh;
+  .sidebar-toggle {
+    position: fixed;
+    z-index: 21;
+    left: min(92vw, 380px);
+    border-radius: 0 11px 11px 0;
+  }
+
+  .app.sidebar-collapsed .sidebar-toggle {
+    left: 14px;
+    border-radius: 11px;
+  }
+
+  .overview-toggle {
+    position: fixed;
+    z-index: 21;
+    right: min(92vw, 500px);
+  }
+
+  .app.overview-collapsed .overview-toggle {
+    right: 0;
+  }
+
+  .map-toolbar,
+  .map-toolbar-show {
+    top: 62px;
+    left: 14px;
+    max-width: calc(100vw - 28px);
+  }
+
+  .map-toolbar {
+    gap: 6px;
+  }
+
+  .toolbar-label {
+    display: none;
+  }
+
+  .seg-btn {
+    padding: 7px 8px;
+    font-size: 11px;
+  }
+
+  .map-bottom-actions {
+    bottom: max(14px, env(safe-area-inset-bottom));
+  }
+
+  .screenshot-btn {
+    display: none;
+  }
+
+  .route-panel {
+    position: fixed;
+    top: auto;
+    right: 10px;
+    bottom: max(62px, calc(env(safe-area-inset-bottom) + 54px));
+    left: 10px;
+    width: auto;
+    max-height: min(52vh, 440px);
+    z-index: 18;
+  }
+
+  .overlay-card {
+    width: calc(100% - 32px);
+    padding: 22px 18px;
+  }
+
+  .toast {
+    bottom: max(70px, calc(env(safe-area-inset-bottom) + 60px));
+    max-width: calc(100% - 28px);
+    text-align: center;
   }
 }

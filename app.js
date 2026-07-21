@@ -84,16 +84,25 @@
     restoreDepotUi();
     syncLabelModeButtons();
     restorePanelWidths();
-    setSidebarCollapsed(localStorage.getItem(SIDEBAR_KEY) === "true", false);
-    setOverviewCollapsed(localStorage.getItem(OVERVIEW_KEY) === "true", false);
+    if (isMobileLayout()) {
+      setSidebarCollapsed(Boolean(savedId), false);
+      setOverviewCollapsed(true, false);
+    } else {
+      setSidebarCollapsed(localStorage.getItem(SIDEBAR_KEY) === "true", false);
+      setOverviewCollapsed(localStorage.getItem(OVERVIEW_KEY) === "true", false);
+    }
     setupPanelResizer(els.leftResizer, "left");
     setupPanelResizer(els.rightResizer, "right");
 
     els.sidebarToggle.addEventListener("click", () => {
-      setSidebarCollapsed(!els.app.classList.contains("sidebar-collapsed"));
+      const opening = els.app.classList.contains("sidebar-collapsed");
+      if (isMobileLayout() && opening) setOverviewCollapsed(true, false);
+      setSidebarCollapsed(!opening);
     });
     els.overviewToggle.addEventListener("click", () => {
-      setOverviewCollapsed(!els.app.classList.contains("overview-collapsed"));
+      const opening = els.app.classList.contains("overview-collapsed");
+      if (isMobileLayout() && opening) setSidebarCollapsed(true, false);
+      setOverviewCollapsed(!opening);
     });
     els.mapToolbarHide.addEventListener("click", () => setMapToolbarHidden(true));
     els.mapToolbarShow.addEventListener("click", () => setMapToolbarHidden(false));
@@ -213,6 +222,10 @@
     if (savedId) {
       loadNaverMaps(savedId);
     }
+  }
+
+  function isMobileLayout() {
+    return window.matchMedia("(max-width: 900px)").matches;
   }
 
   function setSidebarCollapsed(collapsed, animate = true) {
@@ -555,6 +568,7 @@
     els.mapOverlay.classList.add("hidden");
     setMapToolbarHidden(mapToolbarHidden);
     els.screenshotBtn.disabled = false;
+    if (isMobileLayout()) setSidebarCollapsed(true, false);
     setStatus(els.apiStatus, "지도 준비 완료. 현장명과 주소를 추가하세요.", "ok");
     showToast("네이버 지도가 준비되었습니다.");
 
