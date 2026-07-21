@@ -77,6 +77,8 @@
   init();
 
   function init() {
+    window.navermap_authFailure = handleAuthFailure;
+
     const savedId = localStorage.getItem(STORAGE_KEY) || "";
     els.clientIdInput.value = savedId;
     restoreDepotUi();
@@ -503,6 +505,34 @@
       );
     };
     document.head.appendChild(script);
+  }
+
+  function handleAuthFailure() {
+    mapReady = false;
+    map = null;
+    els.mapOverlay.classList.remove("hidden");
+    els.mapToolbar.hidden = true;
+    els.screenshotBtn.disabled = true;
+    updateRouteButton();
+
+    const origin = window.location.origin;
+    const overlayCard = els.mapOverlay.querySelector(".overlay-card");
+    if (overlayCard) {
+      overlayCard.innerHTML = `
+        <h2>네이버 지도 인증 실패</h2>
+        <p>
+          Client ID는 맞지만 이 사이트 도메인이 등록되어 있지 않습니다.<br />
+          NCP 콘솔 → Maps 애플리케이션 → <strong>Web 서비스 URL</strong>에
+          아래 도메인을 추가한 뒤 다시 시도하세요. (포트·경로 제외, 호스트만)
+        </p>
+        <p class="overlay-domain">${escapeHtml(origin)}</p>`;
+    }
+    setStatus(
+      els.apiStatus,
+      `인증 실패: NCP 콘솔 Web 서비스 URL에 ${origin} 을(를) 등록해 주세요.`,
+      "error"
+    );
+    showToast("네이버 지도 인증 실패 — 도메인 등록을 확인하세요.");
   }
 
   function onMapsReady() {

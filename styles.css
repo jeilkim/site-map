@@ -873,6 +873,18 @@ a {
   line-height: 1.5;
 }
 
+.overlay-domain {
+  margin-top: 12px !important;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #0f1419;
+  border: 1px solid var(--border);
+  color: #d7e7ff !important;
+  font-weight: 700;
+  word-break: break-all;
+  user-select: all;
+}
+
 .toast {
   position: absolute;
   left: 50%;
