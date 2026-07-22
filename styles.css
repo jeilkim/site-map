@@ -767,7 +767,8 @@ a {
 
 .route-btn,
 .report-btn,
-.screenshot-btn {
+.screenshot-btn,
+.ppt-btn {
   padding: 10px 13px;
   border-radius: 11px;
   background: rgba(15, 20, 25, 0.94);
@@ -812,8 +813,18 @@ a {
   color: var(--primary);
 }
 
+.ppt-btn {
+  border: 1px solid rgba(196, 141, 255, 0.55);
+  color: #c48dff;
+}
+
+.ppt-btn:hover:not(:disabled) {
+  background: rgba(196, 141, 255, 0.16);
+}
+
 .route-btn:disabled,
-.screenshot-btn:disabled {
+.screenshot-btn:disabled,
+.ppt-btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
@@ -1371,6 +1382,11 @@ a {
     display: none;
   }
 
+  .app.report-mode .screenshot-btn,
+  .app.report-mode .ppt-btn {
+    display: inline-flex;
+  }
+
   .route-panel {
     position: fixed;
     top: auto;
@@ -1453,9 +1469,5 @@ a {
 
   .app.report-mode .overview-toggle {
     display: none;
-  }
-
-  .app.report-mode .screenshot-btn {
-    display: inline-flex;
   }
 }

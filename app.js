@@ -45,7 +45,6 @@
     siteName: document.getElementById("siteName"),
     siteAddress: document.getElementById("siteAddress"),
     siteNote: document.getElementById("siteNote"),
-    reportModeBtn: document.getElementById("reportModeBtn"),
     addSiteBtn: document.getElementById("addSiteBtn"),
     csvInput: document.getElementById("csvInput"),
     csvStatus: document.getElementById("csvStatus"),
@@ -72,7 +71,9 @@
     routeClose: document.getElementById("routeClose"),
     mapToolbarHide: document.getElementById("mapToolbarHide"),
     mapToolbarShow: document.getElementById("mapToolbarShow"),
+    reportModeBtn: document.getElementById("reportModeBtn"),
     screenshotBtn: document.getElementById("screenshotBtn"),
+    pptExportBtn: document.getElementById("pptExportBtn"),
     overviewGrid: document.getElementById("overviewGrid"),
     mapOverlay: document.getElementById("mapOverlay"),
     toast: document.getElementById("toast"),
@@ -123,6 +124,7 @@
     els.clearDepotBtn.addEventListener("click", clearDepot);
     els.reportModeBtn.addEventListener("click", () => setReportMode(!reportMode));
     els.screenshotBtn.addEventListener("click", captureMapAndOverview);
+    els.pptExportBtn.addEventListener("click", exportPptSample);
 
     els.saveClientIdBtn.addEventListener("click", () => {
       const clientId = els.clientIdInput.value.trim();
@@ -328,14 +330,77 @@
 
   async function captureMapAndOverview() {
     if (!mapReady) return;
-    if (!navigator.mediaDevices?.getDisplayMedia) {
-      showToast("이 브라우저에서는 화면 캡처를 지원하지 않습니다.");
+    els.screenshotBtn.disabled = true;
+    els.pptExportBtn.disabled = true;
+    try {
+      const blob = await captureCurrentViewBlob();
+      const link = document.createElement("a");
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+      link.href = URL.createObjectURL(blob);
+      link.download = `현장지도-${timestamp}.png`;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+      showToast("현재 화면을 PNG로 저장했습니다.");
+    } catch (error) {
+      if (error?.name !== "NotAllowedError") {
+        showToast(error?.message || "스크린샷 저장에 실패했습니다.");
+      }
+    } finally {
+      els.screenshotBtn.disabled = false;
+      els.pptExportBtn.disabled = false;
+    }
+  }
+
+  async function exportPptSample() {
+    if (!mapReady) return;
+    if (typeof JSZip === "undefined") {
+      showToast("PPT 생성 라이브러리를 불러오지 못했습니다.");
       return;
     }
 
-    let stream = null;
     els.screenshotBtn.disabled = true;
+    els.pptExportBtn.disabled = true;
+    try {
+      showToast("화면을 캡처한 뒤 PPT 샘플을 만듭니다...");
+      const imageBlob = await captureCurrentViewBlob();
+      showToast("보고서 템플릿에 개략도를 넣는 중...");
 
+      const templateRes = await fetch("templates/report-template.pptx");
+      if (!templateRes.ok) throw new Error("PPT 템플릿을 불러오지 못했습니다.");
+      const templateBuf = await templateRes.arrayBuffer();
+      const zip = await JSZip.loadAsync(templateBuf);
+      zip.file("ppt/media/image3.png", imageBlob);
+
+      const outBlob = await zip.generateAsync({
+        type: "blob",
+        mimeType:
+          "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      });
+
+      const link = document.createElement("a");
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+      link.href = URL.createObjectURL(outBlob);
+      link.download = `현장조사보고서-샘플-${timestamp}.pptx`;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+      showToast("PPT 샘플을 저장했습니다. (2번 슬라이드 개략도 교체)");
+    } catch (error) {
+      if (error?.name !== "NotAllowedError") {
+        showToast(error?.message || "PPT 샘플 생성에 실패했습니다.");
+      }
+    } finally {
+      els.screenshotBtn.disabled = false;
+      els.pptExportBtn.disabled = false;
+    }
+  }
+
+  /** @returns {Promise<Blob>} */
+  async function captureCurrentViewBlob() {
+    if (!navigator.mediaDevices?.getDisplayMedia) {
+      throw new Error("이 브라우저에서는 화면 캡처를 지원하지 않습니다.");
+    }
+
+    let stream = null;
     try {
       showToast("공유 창에서 현재 탭을 선택해 주세요.");
       stream = await navigator.mediaDevices.getDisplayMedia({
@@ -426,22 +491,10 @@
 
       const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
       if (!blob) throw new Error("PNG 파일을 만들지 못했습니다.");
-
-      const link = document.createElement("a");
-      const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-      link.href = URL.createObjectURL(blob);
-      link.download = `현장지도-${timestamp}.png`;
-      link.click();
-      window.setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-      showToast("현재 화면을 PNG로 저장했습니다.");
-    } catch (error) {
-      if (error?.name !== "NotAllowedError") {
-        showToast(error?.message || "스크린샷 저장에 실패했습니다.");
-      }
+      return blob;
     } finally {
       els.app.classList.remove("is-capturing");
       stream?.getTracks().forEach((track) => track.stop());
-      els.screenshotBtn.disabled = false;
     }
   }
 
@@ -580,6 +633,7 @@
     els.mapOverlay.classList.remove("hidden");
     els.mapToolbar.hidden = true;
     els.screenshotBtn.disabled = true;
+    els.pptExportBtn.disabled = true;
     updateRouteButton();
 
     const origin = window.location.origin;
@@ -622,6 +676,7 @@
     els.mapOverlay.classList.add("hidden");
     setMapToolbarHidden(mapToolbarHidden);
     els.screenshotBtn.disabled = false;
+    els.pptExportBtn.disabled = false;
     if (isMobileLayout()) setSidebarCollapsed(true, false);
     setStatus(els.apiStatus, "지도 준비 완료. 현장명과 주소를 추가하세요.", "ok");
     showToast("네이버 지도가 준비되었습니다.");
