@@ -387,16 +387,32 @@
       });
       showToast("보고서 템플릿에 개략도를 넣는 중...");
 
-      const templateRes = await fetch("templates/report-template.pptx?v=20260722b");
+      const templateRes = await fetch("templates/report-template.pptx?v=20260722c");
       if (!templateRes.ok) throw new Error("PPT 템플릿을 불러오지 못했습니다.");
       const templateBuf = await templateRes.arrayBuffer();
       const zip = await JSZip.loadAsync(templateBuf);
+
+      // 개략도 미디어 + slide2 관계/그림 삽입 (템플릿에 자리 없어도 생성)
       zip.file("ppt/media/image3.png", imageBlob);
+      const slide2RelsPath = "ppt/slides/_rels/slide2.xml.rels";
+      const slide2RelsXml = await zip.file(slide2RelsPath).async("string");
+      zip.file(
+        slide2RelsPath,
+        ensureSchematicImageRel(slide2RelsXml, "rId3", "../media/image3.png")
+      );
 
       const slide2Path = "ppt/slides/slide2.xml";
       const slide2Xml = await zip.file(slide2Path).async("string");
-      const updatedSlide2 = setSchematicImageSize(slide2Xml, PPT_IMAGE_CX, PPT_IMAGE_CY);
-      zip.file(slide2Path, updatedSlide2);
+      zip.file(
+        slide2Path,
+        upsertSchematicPicture(slide2Xml, {
+          embedId: "rId3",
+          cx: PPT_IMAGE_CX,
+          cy: PPT_IMAGE_CY,
+          offX: 0,
+          offY: 1039718,
+        })
+      );
 
       const outBlob = await zip.generateAsync({
         type: "blob",
@@ -432,34 +448,81 @@
   }
 
   /**
-   * slide2 개략도 그림(rId3)의 a:ext 크기를 교체합니다.
-   * @param {string} xml
-   * @param {number} cx
-   * @param {number} cy
+   * slide2 rels에 개략도 이미지 관계를 보장합니다.
+   * @param {string} relsXml
+   * @param {string} embedId
+   * @param {string} target
    */
-  function setSchematicImageSize(xml, cx, cy) {
-    const marker = 'r:embed="rId3"';
+  function ensureSchematicImageRel(relsXml, embedId, target) {
+    const imageType =
+      "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image";
+    if (relsXml.includes(`Id="${embedId}"`)) {
+      return relsXml.replace(
+        new RegExp(
+          `<Relationship Id="${embedId}"[^/]*/>`
+        ),
+        `<Relationship Id="${embedId}" Type="${imageType}" Target="${target}"/>`
+      );
+    }
+    return relsXml.replace(
+      "</Relationships>",
+      `<Relationship Id="${embedId}" Type="${imageType}" Target="${target}"/></Relationships>`
+    );
+  }
+
+  /**
+   * slide2에 개략도 그림을 넣거나, 이미 있으면 크기를 맞춥니다.
+   * @param {string} xml
+   * @param {{ embedId: string, cx: number, cy: number, offX: number, offY: number }} opts
+   */
+  function upsertSchematicPicture(xml, opts) {
+    const { embedId, cx, cy, offX, offY } = opts;
+    const marker = `r:embed="${embedId}"`;
+    const picXml =
+      `<p:pic>` +
+      `<p:nvPicPr>` +
+      `<p:cNvPr id="7" name="개략도"/>` +
+      `<p:cNvPicPr><a:picLocks/></p:cNvPicPr>` +
+      `<p:nvPr/>` +
+      `</p:nvPicPr>` +
+      `<p:blipFill>` +
+      `<a:blip r:embed="${embedId}" cstate="print"/>` +
+      `<a:stretch><a:fillRect/></a:stretch>` +
+      `</p:blipFill>` +
+      `<p:spPr>` +
+      `<a:xfrm><a:off x="${offX}" y="${offY}"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm>` +
+      `<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>` +
+      `</p:spPr>` +
+      `</p:pic>`;
+
     const idx = xml.indexOf(marker);
-    if (idx < 0) return xml;
+    if (idx >= 0) {
+      const spPrStart = xml.indexOf("<p:spPr>", idx);
+      const spPrEnd = xml.indexOf("</p:spPr>", spPrStart);
+      if (spPrStart >= 0 && spPrEnd >= 0) {
+        let block = xml.slice(spPrStart, spPrEnd);
+        block = block
+          .replace(
+            /(<a:off\s+x=")(\d+)("\s+y=")(\d+)(")/,
+            `$1${offX}$3${offY}$5`
+          )
+          .replace(
+            /(<a:ext\s+cx=")(\d+)("\s+cy=")(\d+)(")/,
+            `$1${cx}$3${cy}$5`
+          );
+        const before = xml.slice(0, spPrStart).replace(
+          /(<p:cNvPicPr>\s*<a:picLocks[^>]*)\s+noChangeAspect="1"/,
+          "$1"
+        );
+        return before + block + xml.slice(spPrEnd);
+      }
+      return xml;
+    }
 
-    const spPrStart = xml.indexOf("<p:spPr>", idx);
-    if (spPrStart < 0) return xml;
-    const spPrEnd = xml.indexOf("</p:spPr>", spPrStart);
-    if (spPrEnd < 0) return xml;
-
-    let block = xml.slice(spPrStart, spPrEnd);
-    block = block.replace(
-      /(<a:ext\s+cx=")(\d+)("\s+cy=")(\d+)(")/,
-      `$1${cx}$3${cy}$5`
-    );
-    // 비율 고정 잠금 해제 → 지정한 가로·세로로 들어가게
-    const before = xml.slice(0, spPrStart);
-    const after = xml.slice(spPrEnd);
-    let head = before.replace(
-      /(<p:cNvPicPr>\s*<a:picLocks[^>]*)\s+noChangeAspect="1"/,
-      "$1"
-    );
-    return head + block + after;
+    if (xml.includes("</p:spTree>")) {
+      return xml.replace("</p:spTree>", `${picXml}</p:spTree>`);
+    }
+    return xml;
   }
 
   /**
