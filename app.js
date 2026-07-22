@@ -411,7 +411,7 @@
       });
       showToast("보고서 템플릿에 현장명·표를 넣는 중...");
 
-      const templateRes = await fetch("templates/report-template.pptx?v=20260722e");
+      const templateRes = await fetch("templates/report-template.pptx?v=20260722f");
       if (!templateRes.ok) throw new Error("PPT 템플릿을 불러오지 못했습니다.");
       const templateBuf = await templateRes.arrayBuffer();
       const zip = await JSZip.loadAsync(templateBuf);
@@ -490,9 +490,10 @@
    */
   function replaceProjectTokens(xml, projectName) {
     const safe = escapeXml(projectName);
-    return xml.replace(/<a:t([^>]*)>([\s\S]*?)<\/a:t>/g, (full, attrs, text) => {
+    // <a:t>만 매칭 (<a:tailEnd> 등과 혼동 방지)
+    return xml.replace(/<a:t(\s[^>]*)?>([\s\S]*?)<\/a:t>/g, (full, attrs, text) => {
       if (!text.includes("thisname")) return full;
-      return `<a:t${attrs}>${text.split("thisname").join(safe)}</a:t>`;
+      return `<a:t${attrs || ""}>${text.split("thisname").join(safe)}</a:t>`;
     });
   }
 
@@ -525,20 +526,22 @@
     /** @type {string[]} */
     let dataRows = rowMatches.slice(1);
     const templateRow = dataRows[dataRows.length - 1];
+    const maxFill = Math.min(names.length, 40);
 
-    while (dataRows.length < names.length) {
+    while (dataRows.length < maxFill) {
       const n = dataRows.length + 1;
       let cloned = templateRow.replace(/<a:t>\d+<\/a:t>/, `<a:t>${n}</a:t>`);
+      // rowId만 유일값으로 — srgbClr/spcPct 등 다른 val은 건드리지 않음
       cloned = cloned.replace(
-        /val="\d+"/g,
-        () => `val="${Math.floor(Math.random() * 2e9)}"`
+        /(<a16:rowId\b[^>]*\bval=")[^"]*(")/,
+        `$1${20000 + n}$2`
       );
       cloned = clearNameCellText(cloned);
       dataRows.push(cloned);
     }
 
     dataRows = dataRows.map((row, index) => {
-      if (index >= names.length) return clearNameCellText(setRowNumber(row, index + 1));
+      if (index >= maxFill) return clearNameCellText(setRowNumber(row, index + 1));
       return setNameInDataRow(row, names[index], index + 1);
     });
 
@@ -606,7 +609,7 @@
   }
 
   /**
-   * slide3 빨간 샘플 문구를 '특이사항'으로 바꿉니다.
+   * slide3 빨간 글씨를 검정 '특이사항'으로 맞춥니다.
    * @param {string} xml
    */
   function replaceRedNotesWithTeukisasang(xml) {
@@ -616,6 +619,12 @@
     const txStart = xml.indexOf("<p:txBody>", idx);
     const txEnd = xml.indexOf("</p:txBody>", txStart);
     if (txStart < 0 || txEnd < 0) return xml;
+    let body = xml.slice(txStart, txEnd + "</p:txBody>".length);
+    // 이미 특이사항이면 색만 검정으로
+    if (body.includes(">특이사항</a:t>")) {
+      body = body.replace(/<a:srgbClr val="FF0000"\s*\/>/gi, '<a:srgbClr val="000000"/>');
+      return xml.slice(0, txStart) + body + xml.slice(txEnd + "</p:txBody>".length);
+    }
     const newBody =
       `<p:txBody>` +
       `<a:bodyPr wrap="square" rtlCol="0"><a:spAutoFit/></a:bodyPr>` +
@@ -623,8 +632,9 @@
       `<a:p><a:pPr><a:buNone/></a:pPr>` +
       `<a:r><a:rPr lang="ko-KR" altLang="en-US" sz="1400" b="1" dirty="0">` +
       `<a:solidFill><a:srgbClr val="000000"/></a:solidFill></a:rPr>` +
-      `<a:t>특이사항</a:t></a:r></a:p>` +
-      `</p:txBody>`;
+      `<a:t>특이사항</a:t></a:r>` +
+      `<a:endParaRPr lang="ko-KR" altLang="en-US" sz="1400" dirty="0"/>` +
+      `</a:p></p:txBody>`;
     return xml.slice(0, txStart) + newBody + xml.slice(txEnd + "</p:txBody>".length);
   }
 
@@ -659,10 +669,12 @@
   function upsertSchematicPicture(xml, opts) {
     const { embedId, cx, cy, offX, offY } = opts;
     const marker = `r:embed="${embedId}"`;
+    const idMatches = [...xml.matchAll(/\bid="(\d+)"/g)].map((m) => Number(m[1]));
+    const shapeId = (idMatches.length ? Math.max(...idMatches) : 1) + 1;
     const picXml =
       `<p:pic>` +
       `<p:nvPicPr>` +
-      `<p:cNvPr id="7" name="개략도"/>` +
+      `<p:cNvPr id="${shapeId}" name="개략도"/>` +
       `<p:cNvPicPr><a:picLocks/></p:cNvPicPr>` +
       `<p:nvPr/>` +
       `</p:nvPicPr>` +
