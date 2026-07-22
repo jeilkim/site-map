@@ -35,15 +35,32 @@
       </section>
 
       <section class="card">
+        <h2>PPT 보고서 제목</h2>
+        <p class="hint">캡처 시 지도 위·아래에 표시됩니다.</p>
+        <label class="field">
+          <span>보고서 제목</span>
+          <input type="text" id="reportTitle" placeholder="예: Kwater 전주권지사 현장조사보고서" autocomplete="off" />
+        </label>
+        <label class="field">
+          <span>개략도 제목</span>
+          <input type="text" id="mapTitle" placeholder="예: 전주권지사 개략도" autocomplete="off" />
+        </label>
+      </section>
+
+      <section class="card">
         <h2>현장 추가</h2>
         <form id="siteForm" class="site-form">
           <label class="field">
             <span>현장명</span>
-            <input type="text" id="siteName" placeholder="예: 강남 현장" required />
+            <input type="text" id="siteName" placeholder="예: 1. 익산분기" required />
           </label>
           <label class="field">
             <span>주소</span>
             <input type="text" id="siteAddress" placeholder="예: 서울특별시 강남구 테헤란로 152" required />
+          </label>
+          <label class="field">
+            <span>비고</span>
+            <input type="text" id="siteNote" placeholder="예: 프로그램 작업지점" autocomplete="off" />
           </label>
           <button type="submit" class="btn primary" id="addSiteBtn">지도에 추가</button>
         </form>
@@ -68,7 +85,7 @@
 
       <section class="card">
         <h2>CSV 업로드</h2>
-        <p class="hint">첫 줄 헤더: <code>현장명,주소</code></p>
+        <p class="hint">첫 줄 헤더: <code>현장명,주소,비고</code> (비고는 선택)</p>
         <div class="csv-actions">
           <label class="btn secondary file-btn">
             CSV 선택
@@ -98,6 +115,10 @@
     </aside>
 
     <main class="map-panel">
+      <header class="report-banner" id="reportBanner" hidden>
+        <h2 id="reportTitleDisplay">현장조사보고서</h2>
+      </header>
+      <p class="report-map-title" id="reportMapTitleDisplay" hidden>&lt; 개략도 &gt;</p>
       <div id="map" class="map"></div>
       <div
         class="panel-resizer left-resizer"
@@ -139,7 +160,8 @@
       <button type="button" class="map-toolbar-show" id="mapToolbarShow" hidden>표시 설정</button>
       <div class="map-bottom-actions">
         <button type="button" class="route-btn" id="routeToggle" disabled>최적 동선</button>
-        <button type="button" class="screenshot-btn" id="screenshotBtn" disabled>지도+표 저장</button>
+        <button type="button" class="report-btn" id="reportModeBtn">PPT 모드</button>
+        <button type="button" class="screenshot-btn" id="screenshotBtn" disabled>PPT용 저장</button>
       </div>
       <div class="map-overlay" id="mapOverlay">
         <div class="overlay-card">
@@ -171,8 +193,9 @@
     <aside class="site-overview">
       <div class="overview-grid" id="overviewGrid">
         <div class="overview-cell overview-head">번호</div>
-        <div class="overview-cell overview-head">현장명</div>
+        <div class="overview-cell overview-head">명칭</div>
         <div class="overview-cell overview-head">주소</div>
+        <div class="overview-cell overview-head">비고</div>
       </div>
     </aside>
   </div>

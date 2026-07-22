@@ -9,8 +9,11 @@
   const MAP_TOOLBAR_KEY = "site-map.mapToolbarHidden";
   const ROUTE_KEY = "site-map.routeActive";
   const DEPOT_KEY = "site-map.depot";
+  const REPORT_TITLE_KEY = "site-map.reportTitle";
+  const MAP_TITLE_KEY = "site-map.mapTitle";
+  const REPORT_MODE_KEY = "site-map.reportMode";
 
-  /** @typedef {{ id: string, name: string, address: string, lat?: number, lng?: number, error?: string }} Site */
+  /** @typedef {{ id: string, name: string, address: string, note?: string, lat?: number, lng?: number, error?: string }} Site */
   /** @typedef {'number' | 'name' | 'all'} LabelMode */
 
   /** @type {Site[]} */
@@ -27,6 +30,7 @@
   let routeActive = localStorage.getItem(ROUTE_KEY) === "true";
   /** @type {{ address: string, lat: number, lng: number } | null} */
   let depot = loadDepot();
+  let reportMode = localStorage.getItem(REPORT_MODE_KEY) === "true";
   /** @type {{ line: naver.maps.Polyline | null, outline: naver.maps.Polyline | null, badges: naver.maps.Marker[] }} */
   const routeOverlay = { line: null, outline: null, badges: [] };
 
@@ -40,6 +44,13 @@
     siteForm: document.getElementById("siteForm"),
     siteName: document.getElementById("siteName"),
     siteAddress: document.getElementById("siteAddress"),
+    siteNote: document.getElementById("siteNote"),
+    reportTitle: document.getElementById("reportTitle"),
+    mapTitle: document.getElementById("mapTitle"),
+    reportBanner: document.getElementById("reportBanner"),
+    reportTitleDisplay: document.getElementById("reportTitleDisplay"),
+    reportMapTitleDisplay: document.getElementById("reportMapTitleDisplay"),
+    reportModeBtn: document.getElementById("reportModeBtn"),
     addSiteBtn: document.getElementById("addSiteBtn"),
     csvInput: document.getElementById("csvInput"),
     csvStatus: document.getElementById("csvStatus"),
@@ -83,6 +94,7 @@
     const savedId = localStorage.getItem(STORAGE_KEY) || "";
     els.clientIdInput.value = savedId;
     restoreDepotUi();
+    restoreReportTitles();
     syncLabelModeButtons();
     restorePanelWidths();
     if (isMobileLayout()) {
@@ -92,6 +104,7 @@
       setSidebarCollapsed(localStorage.getItem(SIDEBAR_KEY) === "true", false);
       setOverviewCollapsed(localStorage.getItem(OVERVIEW_KEY) === "true", false);
     }
+    setReportMode(reportMode, false);
     setupPanelResizer(els.leftResizer, "left");
     setupPanelResizer(els.rightResizer, "right");
 
@@ -114,7 +127,16 @@
     els.routeClose.addEventListener("click", () => setRouteActive(false));
     els.setDepotBtn.addEventListener("click", setDepotFromInput);
     els.clearDepotBtn.addEventListener("click", clearDepot);
+    els.reportModeBtn.addEventListener("click", () => setReportMode(!reportMode));
     els.screenshotBtn.addEventListener("click", captureMapAndOverview);
+    els.reportTitle.addEventListener("input", () => {
+      localStorage.setItem(REPORT_TITLE_KEY, els.reportTitle.value);
+      syncReportTitles();
+    });
+    els.mapTitle.addEventListener("input", () => {
+      localStorage.setItem(MAP_TITLE_KEY, els.mapTitle.value);
+      syncReportTitles();
+    });
 
     els.saveClientIdBtn.addEventListener("click", () => {
       const clientId = els.clientIdInput.value.trim();
@@ -139,11 +161,12 @@
       e.preventDefault();
       const name = els.siteName.value.trim();
       const address = els.siteAddress.value.trim();
+      const note = els.siteNote.value.trim();
       if (!name || !address) return;
 
       els.addSiteBtn.disabled = true;
       try {
-        await addSite({ name, address });
+        await addSite({ name, address, note });
         els.siteForm.reset();
         els.siteName.focus();
       } finally {
@@ -232,6 +255,44 @@
     return window.matchMedia("(max-width: 900px)").matches;
   }
 
+  function restoreReportTitles() {
+    els.reportTitle.value = localStorage.getItem(REPORT_TITLE_KEY) || "";
+    els.mapTitle.value = localStorage.getItem(MAP_TITLE_KEY) || "";
+    syncReportTitles();
+  }
+
+  function syncReportTitles() {
+    const reportTitle = els.reportTitle.value.trim() || "현장조사보고서";
+    const mapTitle = els.mapTitle.value.trim() || "개략도";
+    els.reportTitleDisplay.textContent = reportTitle;
+    els.reportMapTitleDisplay.textContent = `< ${mapTitle} >`;
+  }
+
+  function setReportMode(active, animate = true) {
+    reportMode = active;
+    localStorage.setItem(REPORT_MODE_KEY, String(active));
+    els.app.classList.toggle("report-mode", active);
+    els.reportModeBtn.classList.toggle("is-active", active);
+    els.reportModeBtn.textContent = active ? "PPT 모드 끄기" : "PPT 모드";
+    els.reportBanner.hidden = !active;
+    els.reportMapTitleDisplay.hidden = !active;
+    syncReportTitles();
+
+    if (active) {
+      setSidebarCollapsed(true, false);
+      setOverviewCollapsed(false, false);
+      setRouteListCollapsed(true);
+    }
+
+    if (!animate || !map) return;
+    const center = map.getCenter();
+    window.setTimeout(() => {
+      naver.maps.Event.trigger(map, "resize");
+      map.setCenter(center);
+      scheduleNumberLayout();
+    }, 240);
+  }
+
   function setRouteListCollapsed(collapsed) {
     els.routePanel.classList.toggle("list-collapsed", collapsed);
     els.routeListToggle.textContent = collapsed ? "목록 보기" : "목록 접기";
@@ -290,13 +351,19 @@
       return;
     }
 
+    const wasReportMode = reportMode;
     const overviewWasCollapsed = els.app.classList.contains("overview-collapsed");
+    const sidebarWasCollapsed = els.app.classList.contains("sidebar-collapsed");
     let stream = null;
     els.screenshotBtn.disabled = true;
 
     try {
-      if (overviewWasCollapsed) {
-        setOverviewCollapsed(false);
+      setReportMode(true, false);
+      setSidebarCollapsed(true, false);
+      setOverviewCollapsed(false, false);
+      if (map) {
+        naver.maps.Event.trigger(map, "resize");
+        scheduleNumberLayout();
       }
 
       showToast("공유 창에서 현재 탭을 선택해 주세요.");
@@ -338,7 +405,7 @@
       await video.play();
 
       els.app.classList.add("is-capturing");
-      await delay(160);
+      await delay(220);
 
       const mapRect = document.querySelector(".map-panel").getBoundingClientRect();
       const overviewRect = document.querySelector(".site-overview").getBoundingClientRect();
@@ -348,11 +415,11 @@
       const sourceY = Math.max(0, mapRect.top * scaleY);
       const sourceWidth = Math.min(
         video.videoWidth - sourceX,
-        (overviewRect.right - mapRect.left) * scaleX
+        Math.max(mapRect.width, overviewRect.width) * scaleX
       );
       const sourceHeight = Math.min(
         video.videoHeight - sourceY,
-        mapRect.height * scaleY
+        (overviewRect.bottom - mapRect.top) * scaleY
       );
 
       const canvas = document.createElement("canvas");
@@ -386,7 +453,7 @@
       link.download = `현장지도-${timestamp}.png`;
       link.click();
       window.setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-      showToast("지도와 현장 표를 PNG로 저장했습니다.");
+      showToast("PPT용 지도+표를 PNG로 저장했습니다.");
     } catch (error) {
       if (error?.name !== "NotAllowedError") {
         showToast(error?.message || "스크린샷 저장에 실패했습니다.");
@@ -395,8 +462,14 @@
       els.app.classList.remove("is-capturing");
       stream?.getTracks().forEach((track) => track.stop());
       els.screenshotBtn.disabled = false;
-      if (overviewWasCollapsed) {
-        setOverviewCollapsed(true);
+      setReportMode(wasReportMode, false);
+      setSidebarCollapsed(sidebarWasCollapsed, false);
+      setOverviewCollapsed(overviewWasCollapsed, false);
+      if (map) {
+        window.setTimeout(() => {
+          naver.maps.Event.trigger(map, "resize");
+          scheduleNumberLayout();
+        }, 240);
       }
     }
   }
@@ -591,7 +664,7 @@
   }
 
   /**
-   * @param {{ name: string, address: string }} input
+   * @param {{ name: string, address: string, note?: string }} input
    * @param {{ silent?: boolean }} [opts]
    * @returns {Promise<{ ok: true, site: Site } | { ok: false, reason: string }>}
    */
@@ -600,6 +673,7 @@
       id: crypto.randomUUID(),
       name: input.name.trim(),
       address: input.address.trim(),
+      note: (input.note || "").trim(),
     };
 
     if (!mapReady) {
@@ -1401,6 +1475,7 @@
           <div>
             <strong>${escapeHtml(site.name)}</strong>
             <span>${escapeHtml(site.address)}</span>
+            ${site.note ? `<em class="site-note">${escapeHtml(site.note)}</em>` : ""}
           </div>
           <div class="site-item-actions">
             <button type="button" class="icon-btn" data-action="focus">위치</button>
@@ -1432,8 +1507,9 @@
 
     const header = `
       <div class="overview-cell overview-head">번호</div>
-      <div class="overview-cell overview-head">현장명</div>
-      <div class="overview-cell overview-head">주소</div>`;
+      <div class="overview-cell overview-head">명칭</div>
+      <div class="overview-cell overview-head">주소</div>
+      <div class="overview-cell overview-head">비고</div>`;
 
     if (!sites.length) {
       els.overviewGrid.innerHTML =
@@ -1446,10 +1522,12 @@
         const parts = splitSiteName(site.name);
         const number = parts.number || "-";
         const name = parts.name || site.name;
+        const note = site.note || "";
         return `
           <div class="overview-cell" title="${escapeHtml(number)}">${escapeHtml(number)}</div>
           <div class="overview-cell" title="${escapeHtml(name)}">${escapeHtml(name)}</div>
-          <div class="overview-cell" title="${escapeHtml(site.address)}">${escapeHtml(site.address)}</div>`;
+          <div class="overview-cell" title="${escapeHtml(site.address)}">${escapeHtml(site.address)}</div>
+          <div class="overview-cell" title="${escapeHtml(note)}">${escapeHtml(note || "—")}</div>`;
       })
       .join("");
 
@@ -1457,9 +1535,9 @@
   }
 
   /**
-   * CSV: 현장명,주소 (header optional but recommended)
+   * CSV: 현장명,주소[,비고] (header optional but recommended)
    * @param {string} text
-   * @returns {{ name: string, address: string }[]}
+   * @returns {{ name: string, address: string, note?: string }[]}
    */
   function parseCsv(text) {
     const lines = text
@@ -1471,6 +1549,7 @@
     if (!lines.length) return [];
 
     let start = 0;
+    let hasNoteColumn = false;
     const firstCols = splitCsvLine(lines[0]).map((c) => c.trim());
     if (
       firstCols.length >= 2 &&
@@ -1478,17 +1557,25 @@
       /주소|address/i.test(firstCols[1])
     ) {
       start = 1;
+      hasNoteColumn = firstCols.length >= 3 && /비고|note|remark/i.test(firstCols[2]);
     }
 
-    /** @type {{ name: string, address: string }[]} */
+    /** @type {{ name: string, address: string, note?: string }[]} */
     const rows = [];
     for (let i = start; i < lines.length; i += 1) {
       const cols = splitCsvLine(lines[i]);
       if (cols.length < 2) continue;
       const name = cols[0].trim();
-      const address = cols.slice(1).join(",").trim();
+      let address = "";
+      let note = "";
+      if (hasNoteColumn) {
+        address = cols[1].trim();
+        note = cols.slice(2).join(",").trim();
+      } else {
+        address = cols.slice(1).join(",").trim();
+      }
       if (!name || !address) continue;
-      rows.push({ name, address });
+      rows.push({ name, address, note });
     }
     return rows;
   }
