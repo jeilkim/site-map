@@ -339,16 +339,22 @@
     let stream = null;
     els.screenshotBtn.disabled = true;
 
+    // A4 landscape @ 300dpi — good enough for print / PPT insert
+    const A4_WIDTH = 3508;
+    const A4_HEIGHT = 2480;
+
     try {
       setReportMode(true, false);
       setSidebarCollapsed(true, false);
       setOverviewCollapsed(false, false);
+      els.app.classList.add("is-a4-export");
       if (map) {
         naver.maps.Event.trigger(map, "resize");
         scheduleNumberLayout();
       }
+      await delay(280);
 
-      showToast("공유 창에서 현재 탭을 선택해 주세요.");
+      showToast("공유 창에서 현재 탭을 선택해 주세요. (A4 고화질 저장)");
       stream = await navigator.mediaDevices.getDisplayMedia({
         video: {
           displaySurface: "browser",
@@ -387,7 +393,11 @@
       await video.play();
 
       els.app.classList.add("is-capturing");
-      await delay(220);
+      if (map) {
+        naver.maps.Event.trigger(map, "resize");
+        scheduleNumberLayout();
+      }
+      await delay(320);
 
       const mapRect = document.querySelector(".map-panel").getBoundingClientRect();
       const overviewRect = document.querySelector(".site-overview").getBoundingClientRect();
@@ -405,43 +415,50 @@
       );
 
       const canvas = document.createElement("canvas");
-      const exportScale = Math.max(
-        1,
-        Math.min(2, 6000 / sourceWidth, 4000 / sourceHeight)
-      );
-      canvas.width = Math.max(1, Math.round(sourceWidth * exportScale));
-      canvas.height = Math.max(1, Math.round(sourceHeight * exportScale));
+      canvas.width = A4_WIDTH;
+      canvas.height = A4_HEIGHT;
       const context = canvas.getContext("2d");
       context.imageSmoothingEnabled = true;
       context.imageSmoothingQuality = "high";
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, A4_WIDTH, A4_HEIGHT);
+
+      const fit = Math.min(A4_WIDTH / sourceWidth, A4_HEIGHT / sourceHeight);
+      const drawWidth = sourceWidth * fit;
+      const drawHeight = sourceHeight * fit;
+      const drawX = (A4_WIDTH - drawWidth) / 2;
+      const drawY = (A4_HEIGHT - drawHeight) / 2;
       context.drawImage(
         video,
         sourceX,
         sourceY,
         sourceWidth,
         sourceHeight,
-        0,
-        0,
-        canvas.width,
-        canvas.height
+        drawX,
+        drawY,
+        drawWidth,
+        drawHeight
       );
 
-      const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+      const blob = await new Promise((resolve) =>
+        canvas.toBlob(resolve, "image/png")
+      );
       if (!blob) throw new Error("PNG 파일을 만들지 못했습니다.");
 
       const link = document.createElement("a");
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
       link.href = URL.createObjectURL(blob);
-      link.download = `현장지도-${timestamp}.png`;
+      link.download = `현장지도-A4-${timestamp}.png`;
       link.click();
       window.setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-      showToast("PPT용 지도+표를 PNG로 저장했습니다.");
+      showToast("A4(가로) 고화질 PNG로 저장했습니다.");
     } catch (error) {
       if (error?.name !== "NotAllowedError") {
         showToast(error?.message || "스크린샷 저장에 실패했습니다.");
       }
     } finally {
       els.app.classList.remove("is-capturing");
+      els.app.classList.remove("is-a4-export");
       stream?.getTracks().forEach((track) => track.stop());
       els.screenshotBtn.disabled = false;
       setReportMode(wasReportMode, false);

@@ -57,7 +57,7 @@ a {
 
 .app.report-mode {
   grid-template-columns: 0 minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr) minmax(0, 22vh);
   grid-template-areas:
     "side map"
     "side table";
@@ -75,13 +75,14 @@ a {
 .app.report-mode .map-panel {
   grid-area: map;
   background: #eef2f7;
-  padding: 12px 14px 8px;
+  padding: 10px 12px 6px;
 }
 
 .app.report-mode .site-overview {
   grid-area: table;
   width: auto;
   height: auto;
+  max-height: 22vh;
   min-height: 0;
   border-left: 0;
   border-top: 0;
@@ -89,14 +90,14 @@ a {
   color: #1f2937;
   opacity: 1;
   pointer-events: auto;
-  overflow: visible;
-  padding: 0 14px 14px;
+  overflow: hidden;
+  padding: 0 12px 10px;
 }
 
 .app.report-mode.overview-collapsed .site-overview {
   opacity: 1;
   pointer-events: auto;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .app.report-mode .map-toolbar,
@@ -106,6 +107,25 @@ a {
 
 .app.report-mode .right-resizer {
   display: none;
+}
+
+.app.is-a4-export {
+  background: #fff;
+}
+
+.app.is-a4-export.report-mode {
+  grid-template-rows: minmax(0, 1fr) minmax(0, 20vh);
+}
+
+.app.is-a4-export .map-panel {
+  padding: 8px 10px 4px;
+  background: #fff;
+}
+
+.app.is-a4-export .site-overview {
+  max-height: 20vh;
+  padding: 0 10px 8px;
+  background: #fff;
 }
 
 .app.is-resizing {
@@ -631,14 +651,15 @@ a {
 }
 
 .app.report-mode .overview-grid {
-  --overview-font-size: 13px;
+  --overview-font-size: 11.5px;
+  height: 100%;
   background: #fff;
   border: 1px solid #d7e0ea;
-  border-radius: 14px;
-  overflow: visible;
-  grid-template-columns: 64px minmax(140px, 0.9fr) minmax(220px, 1.6fr);
-  grid-template-rows: 38px repeat(var(--site-rows), minmax(34px, auto));
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  border-radius: 12px;
+  overflow: hidden;
+  grid-template-columns: 52px minmax(120px, 0.85fr) minmax(180px, 1.7fr);
+  grid-template-rows: 28px repeat(var(--site-rows), minmax(0, 1fr));
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
 }
 
 .app.report-mode .overview-cell {
@@ -646,9 +667,9 @@ a {
   border-right: 1px solid #e6edf5;
   border-bottom: 1px solid #e6edf5;
   background: #fff;
-  padding: 0 12px;
-  line-height: 1.35;
-  white-space: normal;
+  padding: 0 8px;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
 .app.report-mode .overview-cell:nth-child(3n + 1) {
@@ -685,7 +706,7 @@ a {
   color: #fff !important;
   border-right-color: rgba(255, 255, 255, 0.18);
   border-bottom: 0;
-  font-size: 12px;
+  font-size: 11px;
   letter-spacing: 0.02em;
 }
 
@@ -1404,14 +1425,14 @@ a {
   .app.report-mode {
     display: grid;
     grid-template-columns: 1fr;
-    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-rows: minmax(0, 1fr) minmax(0, 24vh);
     grid-template-areas:
       "map"
       "table";
     height: 100vh;
     height: 100dvh;
     background: #eef2f7;
-    overflow: auto;
+    overflow: hidden;
   }
 
   .app.report-mode .sidebar {
@@ -1423,8 +1444,8 @@ a {
     position: relative;
     width: 100%;
     height: auto;
-    min-height: 240px;
-    padding: 10px 10px 6px;
+    min-height: 0;
+    padding: 8px 8px 4px;
     background: #eef2f7;
   }
 
@@ -1435,12 +1456,13 @@ a {
     width: 100%;
     max-width: none;
     height: auto;
+    max-height: 24vh;
     transform: none;
     opacity: 1;
     pointer-events: auto;
     z-index: 5;
-    overflow: visible;
-    padding: 0 10px 10px;
+    overflow: hidden;
+    padding: 0 8px 8px;
     background: #eef2f7;
   }
 
