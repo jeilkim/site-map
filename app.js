@@ -333,28 +333,11 @@
       return;
     }
 
-    const wasReportMode = reportMode;
-    const overviewWasCollapsed = els.app.classList.contains("overview-collapsed");
-    const sidebarWasCollapsed = els.app.classList.contains("sidebar-collapsed");
     let stream = null;
     els.screenshotBtn.disabled = true;
 
-    // A4 portrait @ 300dpi — good enough for print / PPT insert
-    const A4_WIDTH = 2480;
-    const A4_HEIGHT = 3508;
-
     try {
-      setReportMode(true, false);
-      setSidebarCollapsed(true, false);
-      setOverviewCollapsed(false, false);
-      els.app.classList.add("is-a4-export");
-      if (map) {
-        naver.maps.Event.trigger(map, "resize");
-        scheduleNumberLayout();
-      }
-      await delay(280);
-
-      showToast("공유 창에서 현재 탭을 선택해 주세요. (A4 세로 고화질 저장)");
+      showToast("공유 창에서 현재 탭을 선택해 주세요.");
       stream = await navigator.mediaDevices.getDisplayMedia({
         video: {
           displaySurface: "browser",
@@ -393,83 +376,72 @@
       await video.play();
 
       els.app.classList.add("is-capturing");
-      if (map) {
-        naver.maps.Event.trigger(map, "resize");
-        scheduleNumberLayout();
-      }
-      await delay(320);
+      await delay(160);
 
       const mapRect = document.querySelector(".map-panel").getBoundingClientRect();
-      const overviewRect = document.querySelector(".site-overview").getBoundingClientRect();
+      const overviewEl = document.querySelector(".site-overview");
+      const overviewVisible =
+        reportMode || !els.app.classList.contains("overview-collapsed");
+      const overviewRect = overviewEl.getBoundingClientRect();
       const scaleX = video.videoWidth / window.innerWidth;
       const scaleY = video.videoHeight / window.innerHeight;
       const sourceX = Math.max(0, mapRect.left * scaleX);
       const sourceY = Math.max(0, mapRect.top * scaleY);
+      const rightEdge = overviewVisible
+        ? Math.max(mapRect.right, overviewRect.right)
+        : mapRect.right;
+      const bottomEdge = overviewVisible
+        ? Math.max(mapRect.bottom, overviewRect.bottom)
+        : mapRect.bottom;
       const sourceWidth = Math.min(
         video.videoWidth - sourceX,
-        Math.max(mapRect.width, overviewRect.width) * scaleX
+        (rightEdge - mapRect.left) * scaleX
       );
       const sourceHeight = Math.min(
         video.videoHeight - sourceY,
-        (overviewRect.bottom - mapRect.top) * scaleY
+        (bottomEdge - mapRect.top) * scaleY
       );
 
       const canvas = document.createElement("canvas");
-      canvas.width = A4_WIDTH;
-      canvas.height = A4_HEIGHT;
+      const exportScale = Math.max(
+        1,
+        Math.min(2, 6000 / sourceWidth, 4000 / sourceHeight)
+      );
+      canvas.width = Math.max(1, Math.round(sourceWidth * exportScale));
+      canvas.height = Math.max(1, Math.round(sourceHeight * exportScale));
       const context = canvas.getContext("2d");
       context.imageSmoothingEnabled = true;
       context.imageSmoothingQuality = "high";
-      context.fillStyle = "#ffffff";
-      context.fillRect(0, 0, A4_WIDTH, A4_HEIGHT);
-
-      const fit = Math.min(A4_WIDTH / sourceWidth, A4_HEIGHT / sourceHeight);
-      const drawWidth = sourceWidth * fit;
-      const drawHeight = sourceHeight * fit;
-      const drawX = (A4_WIDTH - drawWidth) / 2;
-      const drawY = (A4_HEIGHT - drawHeight) / 2;
       context.drawImage(
         video,
         sourceX,
         sourceY,
         sourceWidth,
         sourceHeight,
-        drawX,
-        drawY,
-        drawWidth,
-        drawHeight
+        0,
+        0,
+        canvas.width,
+        canvas.height
       );
 
-      const blob = await new Promise((resolve) =>
-        canvas.toBlob(resolve, "image/png")
-      );
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
       if (!blob) throw new Error("PNG 파일을 만들지 못했습니다.");
 
       const link = document.createElement("a");
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
       link.href = URL.createObjectURL(blob);
-      link.download = `현장지도-A4세로-${timestamp}.png`;
+      link.download = `현장지도-${timestamp}.png`;
       link.click();
       window.setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-      showToast("A4(세로) 고화질 PNG로 저장했습니다.");
+      showToast("현재 화면을 PNG로 저장했습니다.");
     } catch (error) {
       if (error?.name !== "NotAllowedError") {
         showToast(error?.message || "스크린샷 저장에 실패했습니다.");
       }
     } finally {
       els.app.classList.remove("is-capturing");
-      els.app.classList.remove("is-a4-export");
       stream?.getTracks().forEach((track) => track.stop());
       els.screenshotBtn.disabled = false;
-      setReportMode(wasReportMode, false);
-      setSidebarCollapsed(sidebarWasCollapsed, false);
-      setOverviewCollapsed(overviewWasCollapsed, false);
-      if (map) {
-        window.setTimeout(() => {
-          naver.maps.Event.trigger(map, "resize");
-          scheduleNumberLayout();
-        }, 240);
-      }
     }
   }
 
