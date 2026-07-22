@@ -10,6 +10,7 @@
   const ROUTE_KEY = "site-map.routeActive";
   const DEPOT_KEY = "site-map.depot";
   const REPORT_MODE_KEY = "site-map.reportMode";
+  const PPT_PROJECT_KEY = "site-map.pptProjectName";
 
   /** @typedef {{ id: string, name: string, address: string, note?: string, lat?: number, lng?: number, error?: string }} Site */
   /** @typedef {'number' | 'name' | 'all'} LabelMode */
@@ -74,6 +75,7 @@
     reportModeBtn: document.getElementById("reportModeBtn"),
     screenshotBtn: document.getElementById("screenshotBtn"),
     pptExportBtn: document.getElementById("pptExportBtn"),
+    pptProjectName: document.getElementById("pptProjectName"),
     overviewGrid: document.getElementById("overviewGrid"),
     mapOverlay: document.getElementById("mapOverlay"),
     toast: document.getElementById("toast"),
@@ -89,6 +91,12 @@
 
     const savedId = localStorage.getItem(STORAGE_KEY) || "";
     els.clientIdInput.value = savedId;
+    if (els.pptProjectName) {
+      els.pptProjectName.value = localStorage.getItem(PPT_PROJECT_KEY) || "";
+      els.pptProjectName.addEventListener("change", () => {
+        localStorage.setItem(PPT_PROJECT_KEY, els.pptProjectName.value.trim());
+      });
+    }
     restoreDepotUi();
     syncLabelModeButtons();
     restorePanelWidths();
@@ -358,6 +366,22 @@
       return;
     }
 
+    const projectName = (els.pptProjectName?.value || "").trim();
+    if (!projectName) {
+      showToast("PPT 보고서 현장명을 입력해 주세요.");
+      els.pptProjectName?.focus();
+      return;
+    }
+    localStorage.setItem(PPT_PROJECT_KEY, projectName);
+
+    const siteNames = sites
+      .filter((site) => site.lat != null && site.lng != null && !site.error)
+      .map((site) => siteDisplayName(site));
+    if (!siteNames.length) {
+      showToast("표에 넣을 등록 현장이 없습니다.");
+      return;
+    }
+
     els.screenshotBtn.disabled = true;
     els.pptExportBtn.disabled = true;
 
@@ -385,14 +409,14 @@
         fixedWidth: 932,
         fixedHeight: 889,
       });
-      showToast("보고서 템플릿에 개략도를 넣는 중...");
+      showToast("보고서 템플릿에 현장명·표를 넣는 중...");
 
-      const templateRes = await fetch("templates/report-template.pptx?v=20260722c");
+      const templateRes = await fetch("templates/report-template.pptx?v=20260722d");
       if (!templateRes.ok) throw new Error("PPT 템플릿을 불러오지 못했습니다.");
       const templateBuf = await templateRes.arrayBuffer();
       const zip = await JSZip.loadAsync(templateBuf);
 
-      // 개략도 미디어 + slide2 관계/그림 삽입 (템플릿에 자리 없어도 생성)
+      // 개략도 미디어 + slide2 관계/그림 삽입
       zip.file("ppt/media/image3.png", imageBlob);
       const slide2RelsPath = "ppt/slides/_rels/slide2.xml.rels";
       const slide2RelsXml = await zip.file(slide2RelsPath).async("string");
@@ -402,17 +426,29 @@
       );
 
       const slide2Path = "ppt/slides/slide2.xml";
-      const slide2Xml = await zip.file(slide2Path).async("string");
-      zip.file(
-        slide2Path,
-        upsertSchematicPicture(slide2Xml, {
-          embedId: "rId3",
-          cx: PPT_IMAGE_CX,
-          cy: PPT_IMAGE_CY,
-          offX: 0,
-          offY: 1039718,
-        })
+      let slide2Xml = await zip.file(slide2Path).async("string");
+      slide2Xml = upsertSchematicPicture(slide2Xml, {
+        embedId: "rId3",
+        cx: PPT_IMAGE_CX,
+        cy: PPT_IMAGE_CY,
+        offX: 0,
+        offY: 1039718,
+      });
+      zip.file(slide2Path, slide2Xml);
+
+      // 전주권지사/Kwater 치환 + slide3 명칭/특이사항
+      const xmlPaths = Object.keys(zip.files).filter(
+        (path) => path.endsWith(".xml") && !zip.files[path].dir
       );
+      for (const path of xmlPaths) {
+        let xml = await zip.file(path).async("string");
+        xml = replaceProjectTokens(xml, projectName);
+        if (path === "ppt/slides/slide3.xml") {
+          xml = fillSlide3NameColumn(xml, siteNames);
+          xml = replaceRedNotesWithTeukisasang(xml);
+        }
+        zip.file(path, xml);
+      }
 
       const outBlob = await zip.generateAsync({
         type: "blob",
@@ -423,10 +459,10 @@
       const link = document.createElement("a");
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
       link.href = URL.createObjectURL(outBlob);
-      link.download = `현장조사보고서-샘플-${timestamp}.pptx`;
+      link.download = `현장조사보고서-${projectName}-${timestamp}.pptx`;
       link.click();
       window.setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-      showToast("PPT 샘플 저장 완료 (개략도 19.05×23.12cm)");
+      showToast("PPT 샘플 저장 완료");
     } catch (error) {
       if (error?.name !== "NotAllowedError") {
         showToast(error?.message || "PPT 샘플 생성에 실패했습니다.");
@@ -445,6 +481,155 @@
       els.screenshotBtn.disabled = false;
       els.pptExportBtn.disabled = false;
     }
+  }
+
+  /**
+   * Kwater / 전주권지사 토큰을 입력 현장명으로 바꿉니다.
+   * @param {string} xml
+   * @param {string} projectName
+   */
+  function replaceProjectTokens(xml, projectName) {
+    const safe = escapeXml(projectName);
+    return xml.replace(/<a:t([^>]*)>([\s\S]*?)<\/a:t>/g, (full, attrs, text) => {
+      const trimmed = text.trim();
+      if (/^k-?water$/i.test(trimmed)) {
+        return `<a:t${attrs}></a:t>`;
+      }
+      if (!text.includes("전주권지사")) return full;
+      return `<a:t${attrs}>${text.split("전주권지사").join(safe)}</a:t>`;
+    });
+  }
+
+  /**
+   * slide3 명칭 열에 등록 현장명을 채웁니다.
+   * @param {string} xml
+   * @param {string[]} names
+   */
+  function fillSlide3NameColumn(xml, names) {
+    const tables = [...xml.matchAll(/<a:tbl>[\s\S]*?<\/a:tbl>/g)];
+    if (!tables.length) return xml;
+
+    let target = null;
+    for (const match of tables) {
+      if (match[0].includes("<a:t>명칭</a:t>")) {
+        target = match;
+        break;
+      }
+    }
+    if (!target) return xml;
+
+    const tableXml = target[0];
+    const gridEnd = tableXml.indexOf("</a:tblGrid>");
+    if (gridEnd < 0) return xml;
+    const beforeRows = tableXml.slice(0, gridEnd + "</a:tblGrid>".length);
+    const rowMatches = [...tableXml.matchAll(/<a:tr[\s\S]*?<\/a:tr>/g)].map((m) => m[0]);
+    if (rowMatches.length < 2) return xml;
+
+    const headerRow = rowMatches[0];
+    /** @type {string[]} */
+    let dataRows = rowMatches.slice(1);
+    const templateRow = dataRows[dataRows.length - 1];
+
+    while (dataRows.length < names.length) {
+      const n = dataRows.length + 1;
+      let cloned = templateRow.replace(/<a:t>\d+<\/a:t>/, `<a:t>${n}</a:t>`);
+      cloned = cloned.replace(
+        /val="\d+"/g,
+        () => `val="${Math.floor(Math.random() * 2e9)}"`
+      );
+      cloned = clearNameCellText(cloned);
+      dataRows.push(cloned);
+    }
+
+    dataRows = dataRows.map((row, index) => {
+      if (index >= names.length) return clearNameCellText(setRowNumber(row, index + 1));
+      return setNameInDataRow(row, names[index], index + 1);
+    });
+
+    const newTable = `${beforeRows}${headerRow}${dataRows.join("")}</a:tbl>`;
+    return xml.slice(0, target.index) + newTable + xml.slice(target.index + tableXml.length);
+  }
+
+  /**
+   * @param {string} rowXml
+   * @param {number} no
+   */
+  function setRowNumber(rowXml, no) {
+    return rowXml.replace(/<a:t>\d+<\/a:t>/, `<a:t>${no}</a:t>`);
+  }
+
+  /**
+   * @param {string} rowXml
+   */
+  function clearNameCellText(rowXml) {
+    const cells = [...rowXml.matchAll(/<a:tc[\s\S]*?<\/a:tc>/g)].map((m) => m[0]);
+    if (cells.length < 2) return rowXml;
+    cells[1] = cells[1].replace(/<a:r>[\s\S]*?<\/a:r>/g, "");
+    return rebuildRow(rowXml, cells);
+  }
+
+  /**
+   * @param {string} rowXml
+   * @param {string} name
+   * @param {number} no
+   */
+  function setNameInDataRow(rowXml, name, no) {
+    const cells = [...rowXml.matchAll(/<a:tc[\s\S]*?<\/a:tc>/g)].map((m) => m[0]);
+    if (cells.length < 2) return rowXml;
+    cells[0] = setRowNumber(cells[0], no);
+    cells[1] = fillTableCellText(cells[1], name);
+    return rebuildRow(rowXml, cells);
+  }
+
+  /**
+   * @param {string} rowXml
+   * @param {string[]} cells
+   */
+  function rebuildRow(rowXml, cells) {
+    const openMatch = rowXml.match(/^<a:tr[^>]*>/);
+    const extMatch = rowXml.match(/<a:extLst>[\s\S]*?<\/a:extLst>\s*(?=<\/a:tr>)/);
+    if (!openMatch) return rowXml;
+    return `${openMatch[0]}${cells.join("")}${extMatch ? extMatch[0] : ""}</a:tr>`;
+  }
+
+  /**
+   * @param {string} cellXml
+   * @param {string} text
+   */
+  function fillTableCellText(cellXml, text) {
+    const safe = escapeXml(text);
+    const run =
+      `<a:r><a:rPr lang="ko-KR" altLang="en-US" sz="1000" kern="1200" dirty="0">` +
+      `<a:solidFill><a:srgbClr val="000000"/></a:solidFill></a:rPr>` +
+      `<a:t>${safe}</a:t></a:r>`;
+    let next = cellXml.replace(/<a:r>[\s\S]*?<\/a:r>/g, "");
+    if (next.includes("<a:endParaRPr")) {
+      return next.replace("<a:endParaRPr", `${run}<a:endParaRPr`);
+    }
+    return next.replace("</a:p>", `${run}</a:p>`);
+  }
+
+  /**
+   * slide3 빨간 샘플 문구를 '특이사항'으로 바꿉니다.
+   * @param {string} xml
+   */
+  function replaceRedNotesWithTeukisasang(xml) {
+    const marker = 'name="TextBox 6"';
+    const idx = xml.indexOf(marker);
+    if (idx < 0) return xml;
+    const txStart = xml.indexOf("<p:txBody>", idx);
+    const txEnd = xml.indexOf("</p:txBody>", txStart);
+    if (txStart < 0 || txEnd < 0) return xml;
+    const newBody =
+      `<p:txBody>` +
+      `<a:bodyPr wrap="square" rtlCol="0"><a:spAutoFit/></a:bodyPr>` +
+      `<a:lstStyle/>` +
+      `<a:p><a:pPr><a:buNone/></a:pPr>` +
+      `<a:r><a:rPr lang="ko-KR" altLang="en-US" sz="1400" b="1" dirty="0">` +
+      `<a:solidFill><a:srgbClr val="000000"/></a:solidFill></a:rPr>` +
+      `<a:t>특이사항</a:t></a:r></a:p>` +
+      `</p:txBody>`;
+    return xml.slice(0, txStart) + newBody + xml.slice(txEnd + "</p:txBody>".length);
   }
 
   /**
@@ -1841,5 +2026,14 @@
       .replaceAll(">", "&gt;")
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#39;");
+  }
+
+  function escapeXml(value) {
+    return String(value)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&apos;");
   }
 })();
