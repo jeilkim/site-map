@@ -58,14 +58,27 @@ a {
 .app.report-mode {
   grid-template-columns: 0 minmax(0, 1fr);
   grid-template-rows: minmax(280px, 1fr) minmax(180px, 34vh);
+  grid-template-areas:
+    "side map"
+    "side table";
 }
 
 .app.report-mode.sidebar-collapsed {
   grid-template-columns: 0 minmax(0, 1fr);
 }
 
+.app.report-mode .sidebar {
+  grid-area: side;
+}
+
+.app.report-mode .map-panel {
+  grid-area: map;
+}
+
 .app.report-mode .site-overview {
+  grid-area: table;
   width: auto;
+  min-height: 0;
   border-left: 0;
   border-top: 2px solid #111;
   background: #fff;
@@ -81,8 +94,9 @@ a {
   overflow: auto;
 }
 
-.app.report-mode .right-resizer {
-  display: none;
+.app.report-mode .map-toolbar,
+.app.report-mode .map-toolbar-show {
+  display: none !important;
 }
 
 .app.is-resizing {
@@ -576,7 +590,7 @@ a {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 52px minmax(110px, 0.9fr) minmax(180px, 1.8fr) minmax(90px, 0.8fr);
+  grid-template-columns: 52px minmax(120px, 1fr) minmax(200px, 2fr);
   grid-template-rows: 29px repeat(var(--site-rows), minmax(0, 1fr));
   overflow: hidden;
 }
@@ -604,7 +618,7 @@ a {
   text-overflow: ellipsis;
 }
 
-.overview-cell:nth-child(4n + 1) {
+.overview-cell:nth-child(3n + 1) {
   justify-content: center;
   padding-left: 2px;
   padding-right: 2px;
@@ -612,24 +626,18 @@ a {
   font-weight: 800;
 }
 
-.overview-cell:nth-child(4n + 2) {
+.overview-cell:nth-child(3n + 2) {
   font-weight: 800;
 }
 
-.overview-cell:nth-child(4n + 3) {
+.overview-cell:nth-child(3n) {
   color: #dce5f1;
   font-weight: 600;
 }
 
-.overview-cell:nth-child(4n) {
-  color: #c9d5e5;
-  font-weight: 600;
-}
-
-.overview-cell:nth-child(8n + 5),
-.overview-cell:nth-child(8n + 6),
-.overview-cell:nth-child(8n + 7),
-.overview-cell:nth-child(8n + 8) {
+.overview-cell:nth-child(6n + 4),
+.overview-cell:nth-child(6n + 5),
+.overview-cell:nth-child(6n + 6) {
   background: rgba(255, 255, 255, 0.045);
 }
 
@@ -662,10 +670,9 @@ a {
   background: #fff;
 }
 
-.app.report-mode .overview-cell:nth-child(4n + 1),
-.app.report-mode .overview-cell:nth-child(4n + 2),
-.app.report-mode .overview-cell:nth-child(4n + 3),
-.app.report-mode .overview-cell:nth-child(4n) {
+.app.report-mode .overview-cell:nth-child(3n + 1),
+.app.report-mode .overview-cell:nth-child(3n + 2),
+.app.report-mode .overview-cell:nth-child(3n) {
   color: #111;
   font-weight: 700;
   background: #fff;
@@ -1385,11 +1392,19 @@ a {
     display: grid;
     grid-template-columns: 1fr;
     grid-template-rows: minmax(0, 1fr) minmax(160px, 38vh);
+    grid-template-areas:
+      "map"
+      "table";
     height: 100vh;
     height: 100dvh;
   }
 
+  .app.report-mode .sidebar {
+    grid-area: side;
+  }
+
   .app.report-mode .map-panel {
+    grid-area: map;
     position: relative;
     width: 100%;
     height: auto;
@@ -1397,6 +1412,7 @@ a {
   }
 
   .app.report-mode .site-overview {
+    grid-area: table;
     position: relative;
     inset: auto;
     width: 100%;

@@ -31,6 +31,8 @@
   /** @type {{ address: string, lat: number, lng: number } | null} */
   let depot = loadDepot();
   let reportMode = localStorage.getItem(REPORT_MODE_KEY) === "true";
+  /** @type {LabelMode | null} */
+  let labelModeBeforeReport = null;
   /** @type {{ line: naver.maps.Polyline | null, outline: naver.maps.Polyline | null, badges: naver.maps.Marker[] }} */
   const routeOverlay = { line: null, outline: null, badges: [] };
 
@@ -282,7 +284,19 @@
       setSidebarCollapsed(true, false);
       setOverviewCollapsed(false, false);
       setRouteListCollapsed(true);
+      if (labelMode !== "number") {
+        labelModeBeforeReport = labelMode;
+        setLabelMode("number");
+      } else {
+        labelModeBeforeReport = "number";
+      }
+    } else if (labelModeBeforeReport && labelModeBeforeReport !== labelMode) {
+      const restore = labelModeBeforeReport;
+      labelModeBeforeReport = null;
+      setLabelMode(restore);
     }
+
+    renderOverview();
 
     if (!animate || !map) return;
     const center = map.getCenter();
@@ -772,7 +786,7 @@
       position,
       map,
       icon: {
-        content: buildLabelHtml(site.name),
+        content: buildLabelHtml(site),
         anchor: labelAnchorForMode(labelMode),
       },
     });
@@ -817,6 +831,19 @@
     scheduleNumberLayout();
   }
 
+  /** @param {Site} site */
+  function siteOrderNumber(site) {
+    const idx = sites.findIndex((s) => s.id === site.id);
+    return idx >= 0 ? idx + 1 : 0;
+  }
+
+  /** @param {Site | string} siteOrName */
+  function siteDisplayName(siteOrName) {
+    const fullName = typeof siteOrName === "string" ? siteOrName : siteOrName.name;
+    const match = String(fullName).match(/^\d+\.\s*(.+)$/);
+    return match ? match[1] : fullName;
+  }
+
   /** @param {string} fullName */
   function splitSiteName(fullName) {
     const match = String(fullName).match(/^(\d+)\.\s*(.+)$/);
@@ -824,17 +851,18 @@
     return { number: match[1], name: match[2] };
   }
 
-  /** @param {string} fullName */
-  function formatLabelText(fullName) {
-    const parts = splitSiteName(fullName);
-    if (labelMode === "number") return parts.number || fullName;
-    if (labelMode === "name") return parts.name || fullName;
-    return fullName;
+  /** @param {Site} site */
+  function formatLabelText(site) {
+    const number = String(siteOrderNumber(site));
+    const name = siteDisplayName(site);
+    if (labelMode === "number") return number;
+    if (labelMode === "name") return name;
+    return `${number}. ${name}`;
   }
 
-  /** @param {string} fullName */
-  function buildLabelHtml(fullName) {
-    return `<div class="site-label mode-${labelMode}">${escapeHtml(formatLabelText(fullName))}</div>`;
+  /** @param {Site} site */
+  function buildLabelHtml(site) {
+    return `<div class="site-label mode-${labelMode}">${escapeHtml(formatLabelText(site))}</div>`;
   }
 
   /** @param {LabelMode} mode */
@@ -922,8 +950,7 @@
   }
 
   function siteNumber(site) {
-    const match = String(site.name).match(/^(\d+)/);
-    return match ? Number(match[1]) : Number.MAX_SAFE_INTEGER;
+    return siteOrderNumber(site);
   }
 
   function isClearOfPoints(point, points, clearance) {
@@ -1415,8 +1442,7 @@
         </li>`);
     }
     result.order.forEach((site, index) => {
-      const parts = splitSiteName(site.name);
-      const name = parts.name || site.name;
+      const name = siteDisplayName(site);
       items.push(`
         <li class="route-item">
           <span class="route-seq">${index + 1}</span>
@@ -1470,10 +1496,10 @@
 
     els.siteList.innerHTML = sites
       .map(
-        (site) => `
+        (site, index) => `
         <li class="site-item" data-id="${site.id}">
           <div>
-            <strong>${escapeHtml(site.name)}</strong>
+            <strong>${escapeHtml(`${index + 1}. ${siteDisplayName(site)}`)}</strong>
             <span>${escapeHtml(site.address)}</span>
             ${site.note ? `<em class="site-note">${escapeHtml(site.note)}</em>` : ""}
           </div>
@@ -1507,9 +1533,8 @@
 
     const header = `
       <div class="overview-cell overview-head">번호</div>
-      <div class="overview-cell overview-head">명칭</div>
-      <div class="overview-cell overview-head">주소</div>
-      <div class="overview-cell overview-head">비고</div>`;
+      <div class="overview-cell overview-head">현장명</div>
+      <div class="overview-cell overview-head">주소</div>`;
 
     if (!sites.length) {
       els.overviewGrid.innerHTML =
@@ -1518,16 +1543,13 @@
     }
 
     const rows = sites
-      .map((site) => {
-        const parts = splitSiteName(site.name);
-        const number = parts.number || "-";
-        const name = parts.name || site.name;
-        const note = site.note || "";
+      .map((site, index) => {
+        const number = String(index + 1);
+        const name = siteDisplayName(site);
         return `
           <div class="overview-cell" title="${escapeHtml(number)}">${escapeHtml(number)}</div>
           <div class="overview-cell" title="${escapeHtml(name)}">${escapeHtml(name)}</div>
-          <div class="overview-cell" title="${escapeHtml(site.address)}">${escapeHtml(site.address)}</div>
-          <div class="overview-cell" title="${escapeHtml(note)}">${escapeHtml(note || "—")}</div>`;
+          <div class="overview-cell" title="${escapeHtml(site.address)}">${escapeHtml(site.address)}</div>`;
       })
       .join("");
 
