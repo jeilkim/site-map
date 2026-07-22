@@ -9,8 +9,6 @@
   const MAP_TOOLBAR_KEY = "site-map.mapToolbarHidden";
   const ROUTE_KEY = "site-map.routeActive";
   const DEPOT_KEY = "site-map.depot";
-  const REPORT_TITLE_KEY = "site-map.reportTitle";
-  const MAP_TITLE_KEY = "site-map.mapTitle";
   const REPORT_MODE_KEY = "site-map.reportMode";
 
   /** @typedef {{ id: string, name: string, address: string, note?: string, lat?: number, lng?: number, error?: string }} Site */
@@ -47,11 +45,6 @@
     siteName: document.getElementById("siteName"),
     siteAddress: document.getElementById("siteAddress"),
     siteNote: document.getElementById("siteNote"),
-    reportTitle: document.getElementById("reportTitle"),
-    mapTitle: document.getElementById("mapTitle"),
-    reportBanner: document.getElementById("reportBanner"),
-    reportTitleDisplay: document.getElementById("reportTitleDisplay"),
-    reportMapTitleDisplay: document.getElementById("reportMapTitleDisplay"),
     reportModeBtn: document.getElementById("reportModeBtn"),
     addSiteBtn: document.getElementById("addSiteBtn"),
     csvInput: document.getElementById("csvInput"),
@@ -96,7 +89,6 @@
     const savedId = localStorage.getItem(STORAGE_KEY) || "";
     els.clientIdInput.value = savedId;
     restoreDepotUi();
-    restoreReportTitles();
     syncLabelModeButtons();
     restorePanelWidths();
     if (isMobileLayout()) {
@@ -131,14 +123,6 @@
     els.clearDepotBtn.addEventListener("click", clearDepot);
     els.reportModeBtn.addEventListener("click", () => setReportMode(!reportMode));
     els.screenshotBtn.addEventListener("click", captureMapAndOverview);
-    els.reportTitle.addEventListener("input", () => {
-      localStorage.setItem(REPORT_TITLE_KEY, els.reportTitle.value);
-      syncReportTitles();
-    });
-    els.mapTitle.addEventListener("input", () => {
-      localStorage.setItem(MAP_TITLE_KEY, els.mapTitle.value);
-      syncReportTitles();
-    });
 
     els.saveClientIdBtn.addEventListener("click", () => {
       const clientId = els.clientIdInput.value.trim();
@@ -257,28 +241,12 @@
     return window.matchMedia("(max-width: 900px)").matches;
   }
 
-  function restoreReportTitles() {
-    els.reportTitle.value = localStorage.getItem(REPORT_TITLE_KEY) || "";
-    els.mapTitle.value = localStorage.getItem(MAP_TITLE_KEY) || "";
-    syncReportTitles();
-  }
-
-  function syncReportTitles() {
-    const reportTitle = els.reportTitle.value.trim() || "현장조사보고서";
-    const mapTitle = els.mapTitle.value.trim() || "개략도";
-    els.reportTitleDisplay.textContent = reportTitle;
-    els.reportMapTitleDisplay.textContent = `< ${mapTitle} >`;
-  }
-
   function setReportMode(active, animate = true) {
     reportMode = active;
     localStorage.setItem(REPORT_MODE_KEY, String(active));
     els.app.classList.toggle("report-mode", active);
     els.reportModeBtn.classList.toggle("is-active", active);
     els.reportModeBtn.textContent = active ? "PPT 모드 끄기" : "PPT 모드";
-    els.reportBanner.hidden = !active;
-    els.reportMapTitleDisplay.hidden = !active;
-    syncReportTitles();
 
     if (active) {
       setSidebarCollapsed(true, false);

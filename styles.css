@@ -57,10 +57,11 @@ a {
 
 .app.report-mode {
   grid-template-columns: 0 minmax(0, 1fr);
-  grid-template-rows: minmax(280px, 1fr) minmax(180px, 34vh);
+  grid-template-rows: minmax(0, 1fr) auto;
   grid-template-areas:
     "side map"
     "side table";
+  background: #eef2f7;
 }
 
 .app.report-mode.sidebar-collapsed {
@@ -73,30 +74,38 @@ a {
 
 .app.report-mode .map-panel {
   grid-area: map;
+  background: #eef2f7;
+  padding: 12px 14px 8px;
 }
 
 .app.report-mode .site-overview {
   grid-area: table;
   width: auto;
+  height: auto;
   min-height: 0;
   border-left: 0;
-  border-top: 2px solid #111;
-  background: #fff;
-  color: #111;
+  border-top: 0;
+  background: #eef2f7;
+  color: #1f2937;
   opacity: 1;
   pointer-events: auto;
-  overflow: auto;
+  overflow: visible;
+  padding: 0 14px 14px;
 }
 
 .app.report-mode.overview-collapsed .site-overview {
   opacity: 1;
   pointer-events: auto;
-  overflow: auto;
+  overflow: visible;
 }
 
 .app.report-mode .map-toolbar,
 .app.report-mode .map-toolbar-show {
   display: none !important;
+}
+
+.app.report-mode .right-resizer {
+  display: none;
 }
 
 .app.is-resizing {
@@ -462,48 +471,13 @@ a {
   background: #0b1016;
 }
 
-.report-banner {
-  flex: 0 0 auto;
-  padding: 12px 16px;
-  background: linear-gradient(90deg, #2f3f8f, #4a5db5);
-  color: #fff;
-  text-align: center;
-  border-bottom: 1px solid #1d2a63;
-}
-
-.report-banner[hidden],
-.report-map-title[hidden] {
-  display: none !important;
-}
-
-.report-banner h2 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-}
-
-.report-map-title {
-  flex: 0 0 auto;
-  margin: 0;
-  padding: 8px 12px 4px;
-  background: #fff;
-  color: #111;
-  text-align: center;
-  font-size: 15px;
-  font-weight: 800;
-}
-
-.app.report-mode .map-panel {
-  background: #fff;
-}
-
 .app.report-mode .map {
   flex: 1;
   min-height: 0;
-  border: 1px solid #222;
-  border-left: 0;
-  border-right: 0;
+  border: 1px solid #d5dde8;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
 }
 
 .panel-resizer {
@@ -659,33 +633,72 @@ a {
 .app.report-mode .overview-grid {
   --overview-font-size: 13px;
   background: #fff;
-  grid-template-rows: 32px repeat(var(--site-rows), minmax(28px, auto));
-  overflow: auto;
+  border: 1px solid #d7e0ea;
+  border-radius: 14px;
+  overflow: visible;
+  grid-template-columns: 64px minmax(140px, 0.9fr) minmax(220px, 1.6fr);
+  grid-template-rows: 38px repeat(var(--site-rows), minmax(34px, auto));
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
 }
 
 .app.report-mode .overview-cell {
-  color: #111;
-  border-right: 1px solid #222;
-  border-bottom: 1px solid #222;
+  color: #334155;
+  border-right: 1px solid #e6edf5;
+  border-bottom: 1px solid #e6edf5;
+  background: #fff;
+  padding: 0 12px;
+  line-height: 1.35;
+  white-space: normal;
+}
+
+.app.report-mode .overview-cell:nth-child(3n + 1) {
+  justify-content: center;
+  color: #0f766e;
+  font-weight: 800;
+  background: #f8fafc;
+}
+
+.app.report-mode .overview-cell:nth-child(3n + 2) {
+  color: #0f172a;
+  font-weight: 800;
   background: #fff;
 }
 
-.app.report-mode .overview-cell:nth-child(3n + 1),
-.app.report-mode .overview-cell:nth-child(3n + 2),
 .app.report-mode .overview-cell:nth-child(3n) {
-  color: #111;
-  font-weight: 700;
+  color: #475569;
+  font-weight: 600;
   background: #fff;
+}
+
+.app.report-mode .overview-cell:nth-child(6n + 4),
+.app.report-mode .overview-cell:nth-child(6n + 5),
+.app.report-mode .overview-cell:nth-child(6n + 6) {
+  background: #f8fafc;
+}
+
+.app.report-mode .overview-cell:nth-child(6n + 4) {
+  background: #f1f5f9;
 }
 
 .app.report-mode .overview-head {
-  background: #f3f5f8 !important;
-  color: #111 !important;
-  border-bottom: 2px solid #111;
+  background: #0f766e !important;
+  color: #fff !important;
+  border-right-color: rgba(255, 255, 255, 0.18);
+  border-bottom: 0;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+
+.app.report-mode .overview-head:nth-child(3n + 1),
+.app.report-mode .overview-head:nth-child(3n + 2),
+.app.report-mode .overview-head:nth-child(3n) {
+  color: #fff !important;
+  background: #0f766e !important;
 }
 
 .app.report-mode .overview-empty {
-  color: #666;
+  color: #64748b;
+  background: #fff;
 }
 
 .map-toolbar {
@@ -1391,12 +1404,14 @@ a {
   .app.report-mode {
     display: grid;
     grid-template-columns: 1fr;
-    grid-template-rows: minmax(0, 1fr) minmax(160px, 38vh);
+    grid-template-rows: minmax(0, 1fr) auto;
     grid-template-areas:
       "map"
       "table";
     height: 100vh;
     height: 100dvh;
+    background: #eef2f7;
+    overflow: auto;
   }
 
   .app.report-mode .sidebar {
@@ -1408,7 +1423,9 @@ a {
     position: relative;
     width: 100%;
     height: auto;
-    min-height: 0;
+    min-height: 240px;
+    padding: 10px 10px 6px;
+    background: #eef2f7;
   }
 
   .app.report-mode .site-overview {
@@ -1422,6 +1439,9 @@ a {
     opacity: 1;
     pointer-events: auto;
     z-index: 5;
+    overflow: visible;
+    padding: 0 10px 10px;
+    background: #eef2f7;
   }
 
   .app.report-mode .overview-toggle {
