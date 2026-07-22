@@ -109,6 +109,56 @@ a {
   display: none;
 }
 
+.app.is-ppt-capture {
+  position: fixed !important;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 932px !important;
+  height: 889px !important;
+  max-width: 932px !important;
+  max-height: 889px !important;
+  overflow: hidden !important;
+  z-index: 50;
+  box-shadow: 0 0 0 9999px rgba(8, 12, 18, 0.72);
+}
+
+.app.is-ppt-capture.report-mode {
+  grid-template-columns: 0 minmax(0, 1fr) !important;
+  grid-template-rows: minmax(0, 1fr) minmax(0, 34%) !important;
+  background: #eef2f7;
+}
+
+.app.is-ppt-capture .sidebar,
+.app.is-ppt-capture .sidebar-toggle,
+.app.is-ppt-capture .overview-toggle,
+.app.is-ppt-capture .map-bottom-actions,
+.app.is-ppt-capture .route-panel,
+.app.is-ppt-capture .map-toolbar,
+.app.is-ppt-capture .map-toolbar-show {
+  display: none !important;
+}
+
+.app.is-ppt-capture .map-panel {
+  padding: 0 !important;
+}
+
+.app.is-ppt-capture .site-overview {
+  max-height: none !important;
+  padding: 0 !important;
+}
+
+.app.is-ppt-capture .map {
+  border-radius: 0 !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.app.is-ppt-capture .overview-grid {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
 .app.is-resizing {
   user-select: none;
   cursor: col-resize;

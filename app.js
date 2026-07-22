@@ -360,9 +360,31 @@
 
     els.screenshotBtn.disabled = true;
     els.pptExportBtn.disabled = true;
+
+    const wasReportMode = reportMode;
+    const overviewWasCollapsed = els.app.classList.contains("overview-collapsed");
+    const sidebarWasCollapsed = els.app.classList.contains("sidebar-collapsed");
+
+    // PPT 개략도 슬롯: 19.05cm x 23.12cm (EMU: 1cm = 360000)
+    const PPT_IMAGE_CX = Math.round(19.05 * 360000); // 6858000
+    const PPT_IMAGE_CY = Math.round(23.12 * 360000); // 8323200
+
     try {
-      showToast("화면을 캡처한 뒤 PPT 샘플을 만듭니다...");
-      const imageBlob = await captureCurrentViewBlob();
+      setReportMode(true, false);
+      setSidebarCollapsed(true, false);
+      setOverviewCollapsed(false, false);
+      els.app.classList.add("is-ppt-capture");
+      if (map) {
+        naver.maps.Event.trigger(map, "resize");
+        scheduleNumberLayout();
+      }
+      await delay(280);
+
+      showToast("932×889로 맞춰 캡처한 뒤 PPT에 넣습니다...");
+      const imageBlob = await captureCurrentViewBlob({
+        fixedWidth: 932,
+        fixedHeight: 889,
+      });
       showToast("보고서 템플릿에 개략도를 넣는 중...");
 
       const templateRes = await fetch("templates/report-template.pptx");
@@ -370,6 +392,11 @@
       const templateBuf = await templateRes.arrayBuffer();
       const zip = await JSZip.loadAsync(templateBuf);
       zip.file("ppt/media/image3.png", imageBlob);
+
+      const slide2Path = "ppt/slides/slide2.xml";
+      const slide2Xml = await zip.file(slide2Path).async("string");
+      const updatedSlide2 = setSchematicImageSize(slide2Xml, PPT_IMAGE_CX, PPT_IMAGE_CY);
+      zip.file(slide2Path, updatedSlide2);
 
       const outBlob = await zip.generateAsync({
         type: "blob",
@@ -383,23 +410,69 @@
       link.download = `현장조사보고서-샘플-${timestamp}.pptx`;
       link.click();
       window.setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-      showToast("PPT 샘플을 저장했습니다. (2번 슬라이드 개략도 교체)");
+      showToast("PPT 샘플 저장 완료 (개략도 19.05×23.12cm)");
     } catch (error) {
       if (error?.name !== "NotAllowedError") {
         showToast(error?.message || "PPT 샘플 생성에 실패했습니다.");
       }
     } finally {
+      els.app.classList.remove("is-ppt-capture");
+      setReportMode(wasReportMode, false);
+      setSidebarCollapsed(sidebarWasCollapsed, false);
+      setOverviewCollapsed(overviewWasCollapsed, false);
+      if (map) {
+        window.setTimeout(() => {
+          naver.maps.Event.trigger(map, "resize");
+          scheduleNumberLayout();
+        }, 240);
+      }
       els.screenshotBtn.disabled = false;
       els.pptExportBtn.disabled = false;
     }
   }
 
-  /** @returns {Promise<Blob>} */
-  async function captureCurrentViewBlob() {
+  /**
+   * slide2 개략도 그림(rId3)의 a:ext 크기를 교체합니다.
+   * @param {string} xml
+   * @param {number} cx
+   * @param {number} cy
+   */
+  function setSchematicImageSize(xml, cx, cy) {
+    const marker = 'r:embed="rId3"';
+    const idx = xml.indexOf(marker);
+    if (idx < 0) return xml;
+
+    const spPrStart = xml.indexOf("<p:spPr>", idx);
+    if (spPrStart < 0) return xml;
+    const spPrEnd = xml.indexOf("</p:spPr>", spPrStart);
+    if (spPrEnd < 0) return xml;
+
+    let block = xml.slice(spPrStart, spPrEnd);
+    block = block.replace(
+      /(<a:ext\s+cx=")(\d+)("\s+cy=")(\d+)(")/,
+      `$1${cx}$3${cy}$5`
+    );
+    // 비율 고정 잠금 해제 → 지정한 가로·세로로 들어가게
+    const before = xml.slice(0, spPrStart);
+    const after = xml.slice(spPrEnd);
+    let head = before.replace(
+      /(<p:cNvPicPr>\s*<a:picLocks[^>]*)\s+noChangeAspect="1"/,
+      "$1"
+    );
+    return head + block + after;
+  }
+
+  /**
+   * @param {{ fixedWidth?: number, fixedHeight?: number }} [opts]
+   * @returns {Promise<Blob>}
+   */
+  async function captureCurrentViewBlob(opts = {}) {
     if (!navigator.mediaDevices?.getDisplayMedia) {
       throw new Error("이 브라우저에서는 화면 캡처를 지원하지 않습니다.");
     }
 
+    const fixedWidth = opts.fixedWidth || 0;
+    const fixedHeight = opts.fixedHeight || 0;
     let stream = null;
     try {
       showToast("공유 창에서 현재 탭을 선택해 주세요.");
@@ -441,39 +514,60 @@
       await video.play();
 
       els.app.classList.add("is-capturing");
-      await delay(160);
+      if (map) {
+        naver.maps.Event.trigger(map, "resize");
+        scheduleNumberLayout();
+      }
+      await delay(220);
 
-      const mapRect = document.querySelector(".map-panel").getBoundingClientRect();
-      const overviewEl = document.querySelector(".site-overview");
-      const overviewVisible =
-        reportMode || !els.app.classList.contains("overview-collapsed");
-      const overviewRect = overviewEl.getBoundingClientRect();
+      let captureRect;
+      if (fixedWidth > 0 && fixedHeight > 0) {
+        captureRect = els.app.getBoundingClientRect();
+      } else {
+        const mapRect = document.querySelector(".map-panel").getBoundingClientRect();
+        const overviewEl = document.querySelector(".site-overview");
+        const overviewVisible =
+          reportMode || !els.app.classList.contains("overview-collapsed");
+        const overviewRect = overviewEl.getBoundingClientRect();
+        const rightEdge = overviewVisible
+          ? Math.max(mapRect.right, overviewRect.right)
+          : mapRect.right;
+        const bottomEdge = overviewVisible
+          ? Math.max(mapRect.bottom, overviewRect.bottom)
+          : mapRect.bottom;
+        captureRect = {
+          left: mapRect.left,
+          top: mapRect.top,
+          width: rightEdge - mapRect.left,
+          height: bottomEdge - mapRect.top,
+        };
+      }
+
       const scaleX = video.videoWidth / window.innerWidth;
       const scaleY = video.videoHeight / window.innerHeight;
-      const sourceX = Math.max(0, mapRect.left * scaleX);
-      const sourceY = Math.max(0, mapRect.top * scaleY);
-      const rightEdge = overviewVisible
-        ? Math.max(mapRect.right, overviewRect.right)
-        : mapRect.right;
-      const bottomEdge = overviewVisible
-        ? Math.max(mapRect.bottom, overviewRect.bottom)
-        : mapRect.bottom;
+      const sourceX = Math.max(0, captureRect.left * scaleX);
+      const sourceY = Math.max(0, captureRect.top * scaleY);
       const sourceWidth = Math.min(
         video.videoWidth - sourceX,
-        (rightEdge - mapRect.left) * scaleX
+        captureRect.width * scaleX
       );
       const sourceHeight = Math.min(
         video.videoHeight - sourceY,
-        (bottomEdge - mapRect.top) * scaleY
+        captureRect.height * scaleY
       );
 
       const canvas = document.createElement("canvas");
-      const exportScale = Math.max(
-        1,
-        Math.min(2, 6000 / sourceWidth, 4000 / sourceHeight)
-      );
-      canvas.width = Math.max(1, Math.round(sourceWidth * exportScale));
-      canvas.height = Math.max(1, Math.round(sourceHeight * exportScale));
+      if (fixedWidth > 0 && fixedHeight > 0) {
+        canvas.width = fixedWidth;
+        canvas.height = fixedHeight;
+      } else {
+        const exportScale = Math.max(
+          1,
+          Math.min(2, 6000 / sourceWidth, 4000 / sourceHeight)
+        );
+        canvas.width = Math.max(1, Math.round(sourceWidth * exportScale));
+        canvas.height = Math.max(1, Math.round(sourceHeight * exportScale));
+      }
       const context = canvas.getContext("2d");
       context.imageSmoothingEnabled = true;
       context.imageSmoothingQuality = "high";
