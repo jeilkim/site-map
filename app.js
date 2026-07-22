@@ -339,9 +339,9 @@
     let stream = null;
     els.screenshotBtn.disabled = true;
 
-    // A4 landscape @ 300dpi — good enough for print / PPT insert
-    const A4_WIDTH = 3508;
-    const A4_HEIGHT = 2480;
+    // A4 portrait @ 300dpi — good enough for print / PPT insert
+    const A4_WIDTH = 2480;
+    const A4_HEIGHT = 3508;
 
     try {
       setReportMode(true, false);
@@ -354,7 +354,7 @@
       }
       await delay(280);
 
-      showToast("공유 창에서 현재 탭을 선택해 주세요. (A4 고화질 저장)");
+      showToast("공유 창에서 현재 탭을 선택해 주세요. (A4 세로 고화질 저장)");
       stream = await navigator.mediaDevices.getDisplayMedia({
         video: {
           displaySurface: "browser",
@@ -448,10 +448,10 @@
       const link = document.createElement("a");
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
       link.href = URL.createObjectURL(blob);
-      link.download = `현장지도-A4-${timestamp}.png`;
+      link.download = `현장지도-A4세로-${timestamp}.png`;
       link.click();
       window.setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-      showToast("A4(가로) 고화질 PNG로 저장했습니다.");
+      showToast("A4(세로) 고화질 PNG로 저장했습니다.");
     } catch (error) {
       if (error?.name !== "NotAllowedError") {
         showToast(error?.message || "스크린샷 저장에 실패했습니다.");
