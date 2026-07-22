@@ -411,7 +411,7 @@
       });
       showToast("보고서 템플릿에 현장명·표를 넣는 중...");
 
-      const templateRes = await fetch("templates/report-template.pptx?v=20260722d");
+      const templateRes = await fetch("templates/report-template.pptx?v=20260722e");
       if (!templateRes.ok) throw new Error("PPT 템플릿을 불러오지 못했습니다.");
       const templateBuf = await templateRes.arrayBuffer();
       const zip = await JSZip.loadAsync(templateBuf);
@@ -436,7 +436,7 @@
       });
       zip.file(slide2Path, slide2Xml);
 
-      // 전주권지사/Kwater 치환 + slide3 명칭/특이사항
+      // thisname 치환 + slide3 명칭/특이사항
       const xmlPaths = Object.keys(zip.files).filter(
         (path) => path.endsWith(".xml") && !zip.files[path].dir
       );
@@ -484,19 +484,15 @@
   }
 
   /**
-   * Kwater / 전주권지사 토큰을 입력 현장명으로 바꿉니다.
+   * 템플릿의 thisname 토큰을 입력 현장명으로 바꿉니다.
    * @param {string} xml
    * @param {string} projectName
    */
   function replaceProjectTokens(xml, projectName) {
     const safe = escapeXml(projectName);
     return xml.replace(/<a:t([^>]*)>([\s\S]*?)<\/a:t>/g, (full, attrs, text) => {
-      const trimmed = text.trim();
-      if (/^k-?water$/i.test(trimmed)) {
-        return `<a:t${attrs}></a:t>`;
-      }
-      if (!text.includes("전주권지사")) return full;
-      return `<a:t${attrs}>${text.split("전주권지사").join(safe)}</a:t>`;
+      if (!text.includes("thisname")) return full;
+      return `<a:t${attrs}>${text.split("thisname").join(safe)}</a:t>`;
     });
   }
 
