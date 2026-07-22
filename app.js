@@ -387,7 +387,7 @@
       });
       showToast("보고서 템플릿에 개략도를 넣는 중...");
 
-      const templateRes = await fetch("templates/report-template.pptx");
+      const templateRes = await fetch("templates/report-template.pptx?v=20260722b");
       if (!templateRes.ok) throw new Error("PPT 템플릿을 불러오지 못했습니다.");
       const templateBuf = await templateRes.arrayBuffer();
       const zip = await JSZip.loadAsync(templateBuf);
